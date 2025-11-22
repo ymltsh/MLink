@@ -4,8 +4,8 @@ enum PageCategory {
   deviceConnection,
   screenMirroring,
   appManagement,
-  deviceOperations,
-  fileManager,
+  deviceOperations, // 设备操作
+  fileManager, // 文件管理
   settings,
 }
 

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:process_run/process_run.dart';
 import 'dart:io';
-import 'enums/page_category.dart';
+import 'enums/page_category2.dart' as page_category;
 import 'pages/device_connection_page.dart';
 import 'pages/screen_mirroring_page.dart';
 import 'pages/app_management_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/file_manager_page.dart';
 import 'pages/device_operations_page.dart'; // 添加设备操作页面的导入
 import 'utils/settings_manager.dart';  // 添加这一行
 // flutter_bloc was used by file manager; removed along with feature
@@ -39,7 +40,7 @@ class AdbHomePage extends StatefulWidget {
 
 class _AdbHomePageState extends State<AdbHomePage> {
   // 状态变量
-  PageCategory _selectedCategory = PageCategory.deviceConnection;
+  page_category.PageCategory _selectedCategory = page_category.PageCategory.deviceConnection;
   String output = '';
   List<String> deviceList = [];
   String? selectedDevice;
@@ -389,9 +390,9 @@ class _AdbHomePageState extends State<AdbHomePage> {
               color: Color(0xFF8fb5be),
             ),
             onDestinationSelected: (index) {
-              setState(() => _selectedCategory = PageCategory.values[index]);
+              setState(() => _selectedCategory = page_category.PageCategory.values[index]);
             },
-            destinations: PageCategory.values.map((category) {
+            destinations: page_category.PageCategory.values.map((category) {
               return NavigationRailDestination(
                 icon: Icon(category.icon),
                 label: Text(category.label),
@@ -417,7 +418,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
 
   Widget _buildContent() {
   switch (_selectedCategory) {
-    case PageCategory.deviceConnection:
+    case page_category.PageCategory.deviceConnection:
       return DeviceConnectionPage(
         deviceList: deviceList,
         selectedDevice: selectedDevice,
@@ -446,7 +447,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
         deviceInfo: deviceInfo, // 添加这一行
       );
     
-    case PageCategory.screenMirroring:
+    case page_category.PageCategory.screenMirroring:
       return ScreenMirroringPage(
         bitrateController: bitrateController,
         sizeController: sizeController,
@@ -464,7 +465,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
         enableRecording: enableRecording,  // 添加这一行
       );
     
-    case PageCategory.appManagement:
+    case page_category.PageCategory.appManagement:
       return AppManagementPage(
         apkController: apkController,
         appKeywordController: appKeywordController,
@@ -473,14 +474,15 @@ class _AdbHomePageState extends State<AdbHomePage> {
         packageQueryResult: packageQueryResult,
       );
     
-    case PageCategory.deviceOperations:
+    case page_category.PageCategory.deviceOperations:
       return DeviceOperationsPage(
         onRunCommand: runCommand,
       );
     
-    // 文件管理功能已移除
-    
-    case PageCategory.settings:
+    case page_category.PageCategory.fileManager:
+      return const FileManagerPage();
+
+    case page_category.PageCategory.settings:
       return SettingsPage(
         defaultBitrateController: defaultBitrateController,
         defaultResolutionController: defaultResolutionController,
