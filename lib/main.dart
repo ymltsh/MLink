@@ -480,7 +480,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
       );
     
     case page_category.PageCategory.fileManager:
-      return const FileManagerPage();
+      return FileManagerPage(serial: selectedDevice ?? '');
 
     case page_category.PageCategory.settings:
       return SettingsPage(

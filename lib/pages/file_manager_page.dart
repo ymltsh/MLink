@@ -7,17 +7,19 @@ import 'package:path/path.dart' as p;
 
 import '../app/modules/file_manager/bloc/file_manager_cubit.dart';
 import '../app/modules/file_manager/bloc/file_manager_state.dart';
-import '../app/modules/file_manager/services/adb_file_service_clean.dart';
+// AdbFileService is now created inside the Cubit; page no longer instantiates it.
 import '../app/modules/file_manager/models/file_entry.dart';
 
 /// 文件管理页面
 class FileManagerPage extends StatelessWidget {
-  const FileManagerPage({Key? key}) : super(key: key);
+  final String serial;
+
+  const FileManagerPage({Key? key, required this.serial}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => FileManagerCubit(service: AdbFileService())..loadPath('/sdcard'),
+      create: (_) => FileManagerCubit(deviceSerial: serial)..loadPath('/sdcard'),
       child: const _FileManagerView(),
     );
   }
