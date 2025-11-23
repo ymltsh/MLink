@@ -34,8 +34,13 @@ class AdbFileService {
       // 2. 打印调试日志（这是真正的完整命令）
       print('DEBUG_EXEC: ${args.join(' ')}');
 
-      final result = await runExecutableArguments(args.first, args.sublist(1));
-      
+      // 关键修改：添加 stdoutEncoding: utf8，强制使用 UTF-8 解码防止中文乱码
+      final result = await runExecutableArguments(
+        args.first,
+        args.sublist(1),
+        stdoutEncoding: utf8,
+      );
+
       // 3. 如果有标准错误输出，也打印出来
       if (result.stderr.toString().isNotEmpty) {
         print('DEBUG_ERR: ${result.stderr}');
