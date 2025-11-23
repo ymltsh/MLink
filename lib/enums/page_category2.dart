@@ -5,6 +5,7 @@ enum PageCategory {
   screenMirroring,
   appManagement,
   deviceOperations, // 设备操作
+  superScreenshot, // 超级截屏
   fileManager, // 文件管理
   settings,
 }
@@ -20,6 +21,8 @@ extension PageCategoryExtension on PageCategory {
         return '应用管理';
       case PageCategory.deviceOperations:
         return '设备操作';
+      case PageCategory.superScreenshot:
+        return '超级截屏';
       case PageCategory.fileManager:
         return '文件管理';
       case PageCategory.settings:
@@ -37,6 +40,8 @@ extension PageCategoryExtension on PageCategory {
         return Icons.apps;
       case PageCategory.deviceOperations:
         return Icons.phone_android;
+      case PageCategory.superScreenshot:
+        return Icons.screenshot_monitor;
       case PageCategory.fileManager:
         return Icons.folder;
       case PageCategory.settings:

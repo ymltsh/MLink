@@ -8,6 +8,7 @@ import 'pages/screen_mirroring_page.dart';
 import 'pages/app_management_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/file_manager_page.dart';
+import 'pages/screenshot_page.dart';
 import 'package:adb_tool/utils/app_output.dart';
 import 'pages/device_operations_page.dart'; // 添加设备操作页面的导入
 import 'utils/settings_manager.dart';  // 添加这一行
@@ -495,6 +496,9 @@ class _AdbHomePageState extends State<AdbHomePage> {
       return DeviceOperationsPage(
         onRunCommand: runCommand,
       );
+
+    case page_category.PageCategory.superScreenshot:
+      return ScreenshotPage(serial: selectedDevice ?? '');
     
     case page_category.PageCategory.fileManager:
       return FileManagerPage(serial: selectedDevice ?? '');
