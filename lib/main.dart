@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:process_run/process_run.dart';
 import 'dart:io';
 import 'dart:convert';
@@ -12,10 +13,19 @@ import 'pages/screenshot_page.dart';
 import 'package:adb_tool/utils/app_output.dart';
 import 'pages/device_operations_page.dart'; // 添加设备操作页面的导入
 import 'utils/settings_manager.dart';  // 添加这一行
-// flutter_bloc was used by file manager; removed along with feature
+import 'package:adb_tool/app/theme/app_theme.dart';
+import 'package:adb_tool/app/modules/settings/bloc/theme_cubit.dart';
 
-void main() {
-  runApp(const AdbToolApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final themeCubit = ThemeCubit();
+  await themeCubit.loadTheme();
+
+  runApp(MultiBlocProvider(
+    providers: [BlocProvider<ThemeCubit>(create: (_) => themeCubit)],
+    child: const AdbToolApp(),
+  ));
 }
 
 class AdbToolApp extends StatelessWidget {
@@ -23,13 +33,16 @@ class AdbToolApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '妙联',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      home: const AdbHomePage(),
+    return BlocBuilder<ThemeCubit, ThemeState>(
+      builder: (context, state) {
+        return MaterialApp(
+          title: '妙联',
+          theme: AppTheme.create(state.seedColor, Brightness.light),
+          darkTheme: AppTheme.create(state.seedColor, Brightness.dark),
+          themeMode: state.themeMode,
+          home: const AdbHomePage(),
+        );
+      },
     );
   }
 }
@@ -389,10 +402,12 @@ class _AdbHomePageState extends State<AdbHomePage> {
   // 界面构建
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('妙联'),
-        backgroundColor: const Color(0xFF8fb5be),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
       ),
       body: Row(
         children: [

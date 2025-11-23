@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../utils/settings_manager.dart'; // 添加这一行
+import '../app/modules/settings/bloc/theme_cubit.dart';
 
 class SettingsPage extends StatelessWidget {
   final TextEditingController defaultBitrateController;
@@ -47,12 +49,180 @@ class SettingsPage extends StatelessWidget {
     required this.onEnableRecordingChanged,
   });
 
+  Widget _buildPersonalizationSection(BuildContext context) {
+    final List<Color> presetColors = [
+      const Color(0xFF0ABAB5), // 蒂芙尼蓝
+      Colors.blue,
+      Colors.purple,
+      Colors.green,
+      Colors.orange,
+      Colors.red,
+      Colors.pink,
+      Colors.teal,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('个性化', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        BlocBuilder<ThemeCubit, ThemeState>(
+          builder: (context, state) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('外观模式'),
+                const SizedBox(height: 8),
+                SegmentedButton<ThemeMode>(
+                  segments: <ButtonSegment<ThemeMode>>[
+                    ButtonSegment(value: ThemeMode.system, label: const Icon(Icons.brightness_auto)),
+                    ButtonSegment(value: ThemeMode.light, label: const Icon(Icons.wb_sunny)),
+                    ButtonSegment(value: ThemeMode.dark, label: const Icon(Icons.dark_mode)),
+                  ],
+                  selected: <ThemeMode>{state.themeMode},
+                  onSelectionChanged: (newSelection) {
+                    final mode = newSelection.first;
+                    context.read<ThemeCubit>().setThemeMode(mode);
+                  },
+                ),
+                const SizedBox(height: 12),
+                const Text('主题强调色'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: presetColors.map((color) {
+                    final selected = color.value == state.seedColor.value;
+                    return InkWell(
+                      onTap: () => context.read<ThemeCubit>().setSeedColor(color),
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: color,
+                        ),
+                        child: selected
+                            ? const Icon(Icons.check, color: Colors.white)
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        // 弹出对话框输入自定义 Hex 颜色
+                        String? result = await showDialog<String>(
+                          context: context,
+                          builder: (context) {
+                            String hex = '';
+                            Color preview = Colors.transparent;
+                            return StatefulBuilder(builder: (context, setState) {
+                              return AlertDialog(
+                                title: const Text('输入自定义颜色 (Hex)'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    TextField(
+                                      decoration: const InputDecoration(
+                                        prefixText: '#',
+                                        hintText: 'e.g. 0ABAB5 或 FF0ABAB5',
+                                      ),
+                                      onChanged: (v) {
+                                        hex = v.trim();
+                                        final cleaned = v.replaceAll('#', '').replaceAll('0x', '');
+                                        if (RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(cleaned)) {
+                                          preview = Color(int.parse('0xFF' + cleaned));
+                                        } else if (RegExp(r'^[0-9a-fA-F]{8}$').hasMatch(cleaned)) {
+                                          preview = Color(int.parse('0x' + cleaned));
+                                        } else {
+                                          preview = Colors.transparent;
+                                        }
+                                        setState(() {});
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        const Text('预览：'),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: preview,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.grey.shade300),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text('取消'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop(hex);
+                                    },
+                                    child: const Text('确定'),
+                                  ),
+                                ],
+                              );
+                            });
+                          },
+                        );
+
+                        if (!context.mounted) return;
+                        if (result != null && result.trim().isNotEmpty) {
+                          final cleaned = result.replaceAll('#', '').replaceAll('0x', '');
+                          try {
+                            Color newColor;
+                            if (RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(cleaned)) {
+                              newColor = Color(int.parse('0xFF' + cleaned));
+                            } else if (RegExp(r'^[0-9a-fA-F]{8}$').hasMatch(cleaned)) {
+                              newColor = Color(int.parse('0x' + cleaned));
+                            } else {
+                              throw FormatException('Invalid hex');
+                            }
+                            context.read<ThemeCubit>().setSeedColor(newColor);
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无效的十六进制颜色')));
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.edit),
+                      label: const Text('自定义颜色'),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text('输入 6 或 8 位十六进制颜色代码，例如 0ABAB5 或 FF0ABAB5'),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _buildDefaultSettings(),
+        const SizedBox(height: 16),
+        _buildPersonalizationSection(context),
         const Divider(),
         _buildDeviceSettings(),
         const Divider(),
