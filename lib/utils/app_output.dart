@@ -12,3 +12,8 @@ void appendAppOutput(String line) {
     appOutputNotifier.value = '$prev\n$line';
   }
 }
+
+/// Clear the app output completely.
+void clearAppOutput() {
+  appOutputNotifier.value = '';
+}

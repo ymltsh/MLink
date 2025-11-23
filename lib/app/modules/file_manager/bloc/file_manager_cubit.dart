@@ -36,6 +36,8 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   }
 
   Future<void> loadPath(String path) async {
+    // 清空输出，保持界面信息简洁
+    clearAppOutput();
     // 1. 规范化输入路径，避免多斜杠或拼接错误
     final normalized = p.posix.normalize(path);
     emit(state.copyWith(status: FileManagerStatus.loading, currentPath: normalized));
@@ -50,6 +52,8 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   }
 
   Future<void> mapsUp() async {
+    // 清空输出，保持界面信息简洁
+    clearAppOutput();
     final current = state.currentPath;
     if (current == '/' || current.isEmpty) return;
     final parent = p.posix.dirname(current);
@@ -58,6 +62,8 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   }
 
   Future<void> enterDirectory(FileEntry dir) async {
+    // 清空输出，保持界面信息简洁
+    clearAppOutput();
     if (!dir.isDirectory) return;
     final newPath = p.posix.normalize(dir.path);
     await loadPath(newPath);
@@ -97,6 +103,8 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   }
 
   Future<void> deleteFile(FileEntry file) async {
+    // 清空输出，保持界面信息简洁
+    clearAppOutput();
     emit(state.copyWith(status: FileManagerStatus.loading));
     try {
       await service.delete(file.path, useRoot: state.isRootMode);
@@ -109,6 +117,8 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   /// Delete selected files (batch)
   Future<void> deleteSelected() async {
     if (state.selectedFiles.isEmpty) return;
+    // 清空主输出面板，保持本次操作日志简洁
+    clearAppOutput();
     emit(state.copyWith(status: FileManagerStatus.loading));
     try {
       for (final f in state.selectedFiles) {
@@ -124,6 +134,8 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   Future<void> downloadFile(FileEntry file, String localPath) async {
     final tag = file.name;
     _lastLoggedPercent[tag] = -100;
+    // 清空主输出面板，保持本次操作日志简洁
+    clearAppOutput();
     emit(state.copyWith(progress: 0.0));
     try {
       await for (final p in service.pull(file.path, localPath, useRoot: state.isRootMode)) {
@@ -142,6 +154,8 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   /// Download all selected files into [localDir]
   Future<void> downloadSelected(String localDir) async {
     if (state.selectedFiles.isEmpty) return;
+    // 清空输出以聚焦本次批量下载
+    clearAppOutput();
     for (final f in state.selectedFiles) {
       final local = p.join(localDir, f.name);
       await downloadFile(f, local);
@@ -151,11 +165,19 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   }
 
   Future<void> uploadFile(String localPath, String remotePath) async {
-    final tag = p.posix.basename(localPath);
+    // 清空主输出面板，保持本次操作日志简洁
+    clearAppOutput();
+    final tag = p.basename(localPath);
     _lastLoggedPercent[tag] = -100;
+    // 清空主输出面板，保持本次操作日志简洁
     emit(state.copyWith(progress: 0.0));
     try {
-      final targetRemote = p.posix.normalize(remotePath);
+      // 如果传入的 remotePath 看起来包含本地 Windows 路径（例如带有反斜杠或盘符），
+      // 说明调用方可能误传了本地路径，改为把文件名作为远端目标名。
+      final bool looksLikeLocal = remotePath.contains('\\') || RegExp(r'^[A-Za-z]:').hasMatch(remotePath);
+      final targetRemote = looksLikeLocal
+          ? p.posix.join(state.currentPath, p.basename(localPath))
+          : p.posix.normalize(remotePath);
       await for (final p in service.push(localPath, targetRemote, useRoot: state.isRootMode)) {
         emit(state.copyWith(progress: p));
         _logProgress(tag, p);
@@ -173,8 +195,10 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   /// Upload multiple local files to current remote path
   Future<void> uploadFiles(List<String> localPaths) async {
     // Upload sequentially but keep UI non-blocking with progress updates
+    // 清空输出以聚焦本次批量上传
+    clearAppOutput();
     for (final local in localPaths) {
-      final remote = p.posix.join(state.currentPath, p.posix.basename(local));
+      final remote = p.posix.join(state.currentPath, p.basename(local));
       try {
         await uploadFile(local, remote);
       } catch (e) {
