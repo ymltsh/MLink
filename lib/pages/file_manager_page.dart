@@ -101,6 +101,24 @@ class _FileManagerViewState extends State<_FileManagerView> {
               child: Row(
                 children: [
                   ElevatedButton.icon(
+                    icon: const Icon(Icons.arrow_upward),
+                    label: const Text('返回上一层'),
+                    onPressed: () async {
+                      await cubit.mapsUp();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.home),
+                    label: const Text('返回/sdcard'),
+                    onPressed: () async {
+                      await cubit.loadPath('/sdcard');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+
+                  ElevatedButton.icon(
                     icon: const Icon(Icons.upload_file),
                     label: const Text('上传'),
                     onPressed: () async {
