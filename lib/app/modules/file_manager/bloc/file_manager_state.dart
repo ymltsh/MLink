@@ -11,6 +11,7 @@ class FileManagerState extends Equatable {
   final double uploadProgress;
   final double downloadProgress;
   final String? errorMessage;
+  final Set<FileEntry> selectedFiles;
 
   const FileManagerState({
     required this.currentPath,
@@ -20,6 +21,7 @@ class FileManagerState extends Equatable {
     required this.uploadProgress,
     required this.downloadProgress,
     this.errorMessage,
+    required this.selectedFiles,
   });
 
   factory FileManagerState.initial() => const FileManagerState(
@@ -29,6 +31,7 @@ class FileManagerState extends Equatable {
         isRootMode: false,
         uploadProgress: 0.0,
         downloadProgress: 0.0,
+      selectedFiles: const <FileEntry>{},
       );
 
   FileManagerState copyWith({
@@ -39,6 +42,7 @@ class FileManagerState extends Equatable {
     double? uploadProgress,
     double? downloadProgress,
     String? errorMessage,
+    Set<FileEntry>? selectedFiles,
   }) {
     return FileManagerState(
       currentPath: currentPath ?? this.currentPath,
@@ -48,9 +52,20 @@ class FileManagerState extends Equatable {
       uploadProgress: uploadProgress ?? this.uploadProgress,
       downloadProgress: downloadProgress ?? this.downloadProgress,
       errorMessage: errorMessage ?? this.errorMessage,
+      selectedFiles: selectedFiles ?? this.selectedFiles,
     );
   }
 
   @override
-  List<Object?> get props => [currentPath, files, status, isRootMode, uploadProgress, downloadProgress, errorMessage];
+  // Use file paths for stable comparison of selected files
+  List<Object?> get props => [
+        currentPath,
+        files,
+        status,
+        isRootMode,
+        uploadProgress,
+        downloadProgress,
+        errorMessage,
+        selectedFiles.map((e) => e.path).toList(),
+      ];
 }

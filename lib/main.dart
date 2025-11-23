@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:process_run/process_run.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'enums/page_category2.dart' as page_category;
 import 'pages/device_connection_page.dart';
 import 'pages/screen_mirroring_page.dart';
@@ -141,12 +142,41 @@ class _AdbHomePageState extends State<AdbHomePage> {
       realCmd.insert(1, selectedDevice!);
       realCmd.insert(1, '-s');
     }
-    final result = await runExecutableArguments(realCmd[0], realCmd.sublist(1));
-    setState(() => output = result.stdout);
+
+    try {
+      final result = await _runWithSmartEncoding(realCmd);
+      setState(() {
+        final stdoutStr = result.stdout?.toString() ?? '';
+        final stderrStr = result.stderr?.toString() ?? '';
+        output = stdoutStr + (stderrStr.isNotEmpty ? '\n' + stderrStr : '');
+        _showOutputPanel = true;
+      });
+    } catch (e) {
+      setState(() {
+        output = 'Error: $e';
+        _showOutputPanel = true;
+      });
+    }
+  }
+
+  // 根据命令内容智能选择编码并执行可执行文件
+  Future<ProcessResult> _runWithSmartEncoding(List<String> cmd) async {
+    if (cmd.isEmpty) {
+      throw ArgumentError('Empty command');
+    }
+    final bool isShellCmd = cmd.contains('shell');
+    final encoding = isShellCmd ? utf8 : const SystemEncoding();
+
+    return await runExecutableArguments(
+      cmd.first,
+      cmd.sublist(1),
+      stdoutEncoding: encoding,
+      stderrEncoding: encoding,
+    );
   }
 
   Future<void> refreshDeviceList() async {
-    final result = await runExecutableArguments('adb', ['devices']);
+    final result = await _runWithSmartEncoding(['adb', 'devices']);
     final devices = result.stdout.toString()
         .split('\n')
         .where((line) => line.contains('\tdevice'))
@@ -170,7 +200,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
       cmd.insert(1, selectedDevice!);
       cmd.insert(1, '-s');
     }
-    final result = await runExecutableArguments(cmd.first, cmd.sublist(1));
+    final result = await _runWithSmartEncoding(cmd);
     final lines = result.stdout.toString().split('\n');
     final filtered = lines.where((line) => line.contains(keyword)).toList();
     setState(() {
@@ -258,29 +288,19 @@ class _AdbHomePageState extends State<AdbHomePage> {
   // 添加获取设备信息的方法
   Future<void> _refreshDeviceInfo(String device) async {
     // 获取设备型号
-    final modelResult = await runExecutableArguments(
-      'adb', ['-s', device, 'shell', 'getprop', 'ro.product.model']
-    );
+    final modelResult = await _runWithSmartEncoding(['adb', '-s', device, 'shell', 'getprop', 'ro.product.model']);
     
     // 获取Android版本
-    final versionResult = await runExecutableArguments(
-      'adb', ['-s', device, 'shell', 'getprop', 'ro.build.version.release']
-    );
+    final versionResult = await _runWithSmartEncoding(['adb', '-s', device, 'shell', 'getprop', 'ro.build.version.release']);
     
     // 获取屏幕分辨率
-    final sizeResult = await runExecutableArguments(
-      'adb', ['-s', device, 'shell', 'wm', 'size']
-    );
+    final sizeResult = await _runWithSmartEncoding(['adb', '-s', device, 'shell', 'wm', 'size']);
     
     // 获取运行内存
-    final memResult = await runExecutableArguments(
-      'adb', ['-s', device, 'shell', 'cat', '/proc/meminfo']
-    );
+    final memResult = await _runWithSmartEncoding(['adb', '-s', device, 'shell', 'cat', '/proc/meminfo']);
     
     // 获取存储信息
-    final storageResult = await runExecutableArguments(
-      'adb', ['-s', device, 'shell', 'df', '/storage/emulated']
-    );
+    final storageResult = await _runWithSmartEncoding(['adb', '-s', device, 'shell', 'df', '/storage/emulated']);
 
     // 解析存储信息
     String storageTotal = '未知';
@@ -320,14 +340,10 @@ class _AdbHomePageState extends State<AdbHomePage> {
     }
 
     // 获取CPU架构
-    final abiResult = await runExecutableArguments(
-      'adb', ['-s', device, 'shell', 'getprop', 'ro.product.cpu.abi']
-    );
+    final abiResult = await _runWithSmartEncoding(['adb', '-s', device, 'shell', 'getprop', 'ro.product.cpu.abi']);
     
     // 获取电池信息
-    final batteryResult = await runExecutableArguments(
-      'adb', ['-s', device, 'shell', 'dumpsys', 'battery']
-    );
+    final batteryResult = await _runWithSmartEncoding(['adb', '-s', device, 'shell', 'dumpsys', 'battery']);
 
     // 解析电池信息
     String batteryLevel = '未知';
