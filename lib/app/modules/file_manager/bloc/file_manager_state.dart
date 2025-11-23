@@ -10,6 +10,7 @@ class FileManagerState extends Equatable {
   final bool isRootMode;
   final double uploadProgress;
   final double downloadProgress;
+  final double? progress;
   final String? errorMessage;
   final Set<FileEntry> selectedFiles;
 
@@ -20,6 +21,7 @@ class FileManagerState extends Equatable {
     required this.isRootMode,
     required this.uploadProgress,
     required this.downloadProgress,
+    this.progress,
     this.errorMessage,
     required this.selectedFiles,
   });
@@ -31,6 +33,7 @@ class FileManagerState extends Equatable {
         isRootMode: false,
         uploadProgress: 0.0,
         downloadProgress: 0.0,
+      progress: null,
       selectedFiles: const <FileEntry>{},
       );
 
@@ -41,6 +44,7 @@ class FileManagerState extends Equatable {
     bool? isRootMode,
     double? uploadProgress,
     double? downloadProgress,
+    double? progress,
     String? errorMessage,
     Set<FileEntry>? selectedFiles,
   }) {
@@ -51,6 +55,7 @@ class FileManagerState extends Equatable {
       isRootMode: isRootMode ?? this.isRootMode,
       uploadProgress: uploadProgress ?? this.uploadProgress,
       downloadProgress: downloadProgress ?? this.downloadProgress,
+      progress: progress ?? this.progress,
       errorMessage: errorMessage ?? this.errorMessage,
       selectedFiles: selectedFiles ?? this.selectedFiles,
     );
@@ -63,6 +68,7 @@ class FileManagerState extends Equatable {
         files,
         status,
         isRootMode,
+      progress,
         uploadProgress,
         downloadProgress,
         errorMessage,

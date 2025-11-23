@@ -6,9 +6,13 @@ import 'package:path/path.dart' as p;
 import '../models/file_entry.dart';
 import '../services/adb_file_service_clean.dart';
 import 'file_manager_state.dart';
+import 'package:adb_tool/utils/app_output.dart';
 
 class FileManagerCubit extends Cubit<FileManagerState> {
   final AdbFileService service;
+
+  // track last logged percent per file tag to avoid flooding the output
+  final Map<String, int> _lastLoggedPercent = {};
 
   // Accept deviceSerial and create the AdbFileService internally so ADB commands
   // target the correct device.
@@ -103,14 +107,20 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   }
 
   Future<void> downloadFile(FileEntry file, String localPath) async {
-    emit(state.copyWith(downloadProgress: 0.0, status: FileManagerStatus.loading));
+    final tag = file.name;
+    _lastLoggedPercent[tag] = -100;
+    emit(state.copyWith(progress: 0.0));
     try {
       await for (final p in service.pull(file.path, localPath, useRoot: state.isRootMode)) {
-        emit(state.copyWith(downloadProgress: p));
+        emit(state.copyWith(progress: p));
+        _logProgress(tag, p);
       }
-      emit(state.copyWith(downloadProgress: 1.0, status: FileManagerStatus.success));
+      emit(state.copyWith(progress: 1.0));
     } catch (e) {
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
+      appendAppOutput('下载失败 $tag: $e');
+    } finally {
+      // ensure progress is cleared so UI is not stuck
+      emit(state.copyWith(progress: null));
     }
   }
 
@@ -126,24 +136,46 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   }
 
   Future<void> uploadFile(String localPath, String remotePath) async {
-    emit(state.copyWith(uploadProgress: 0.0, status: FileManagerStatus.loading));
+    final tag = p.posix.basename(localPath);
+    _lastLoggedPercent[tag] = -100;
+    emit(state.copyWith(progress: 0.0));
     try {
       final targetRemote = p.posix.normalize(remotePath);
       await for (final p in service.push(localPath, targetRemote, useRoot: state.isRootMode)) {
-        emit(state.copyWith(uploadProgress: p));
+        emit(state.copyWith(progress: p));
+        _logProgress(tag, p);
       }
-      emit(state.copyWith(uploadProgress: 1.0, status: FileManagerStatus.success));
+      emit(state.copyWith(progress: 1.0));
       await loadPath(state.currentPath);
     } catch (e) {
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
+      appendAppOutput('上传失败 $tag: $e');
+    } finally {
+      // always reset the transient progress indicator
+      emit(state.copyWith(progress: null));
     }
   }
 
   /// Upload multiple local files to current remote path
   Future<void> uploadFiles(List<String> localPaths) async {
+    // Upload sequentially but keep UI non-blocking with progress updates
     for (final local in localPaths) {
       final remote = p.posix.join(state.currentPath, p.posix.basename(local));
-      await uploadFile(local, remote);
+      try {
+        await uploadFile(local, remote);
+      } catch (e) {
+        appendAppOutput('上传任务出错 ${p.posix.basename(local)}: $e');
+      }
+    }
+  }
+
+  /// Log progress with throttling to avoid flooding the UI output panel.
+  /// Only logs at start (0%), every +10% increment, and at 100%.
+  void _logProgress(String tag, double percent) {
+    final p100 = (percent * 100).toInt();
+    final last = _lastLoggedPercent[tag] ?? -100;
+    if (p100 == 0 || p100 == 100 || p100 - last >= 10) {
+      appendAppOutput('正在传输 $tag: $p100%');
+      _lastLoggedPercent[tag] = p100;
     }
   }
 

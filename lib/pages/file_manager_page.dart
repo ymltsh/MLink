@@ -223,38 +223,39 @@ class _FileManagerViewState extends State<_FileManagerView> {
               ),
             ),
 
-            // File list
+            // Progress bar (non-blocking) placed under toolbar
+            if (state.progress != null) LinearProgressIndicator(value: state.progress, minHeight: 4),
+
+            // File list (always interactive; loading is now non-blocking)
             Expanded(
-              child: state.status == FileManagerStatus.loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Scrollbar(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: state.files.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, idx) {
-                          final entry = state.files[idx];
-                          final checked = state.selectedFiles.any((e) => e.path == entry.path);
-                          return MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: ListTile(
-                              leading: Row(mainAxisSize: MainAxisSize.min, children: [
-                                Checkbox(
-                                  value: checked,
-                                  onChanged: (_) => cubit.toggleSelection(entry),
-                                ),
-                                Icon(entry.isDirectory ? Icons.folder : Icons.insert_drive_file),
-                              ]),
-                              title: Text(entry.name),
-                              subtitle: Text(entry.permission ?? ''),
-                              trailing: Text(entry.size != null ? _formatSize(entry.size!) : ''),
-                              onTap: () => entry.isDirectory ? cubit.enterDirectory(entry) : null,
-                              onLongPress: () => _showContextMenu(context, entry, cubit),
-                            ),
-                          );
-                        },
+              child: Scrollbar(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: state.files.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, idx) {
+                    final entry = state.files[idx];
+                    final checked = state.selectedFiles.any((e) => e.path == entry.path);
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: ListTile(
+                        leading: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Checkbox(
+                            value: checked,
+                            onChanged: (_) => cubit.toggleSelection(entry),
+                          ),
+                          Icon(entry.isDirectory ? Icons.folder : Icons.insert_drive_file),
+                        ]),
+                        title: Text(entry.name),
+                        subtitle: Text(entry.permission ?? ''),
+                        trailing: Text(entry.size != null ? _formatSize(entry.size!) : ''),
+                        onTap: () => entry.isDirectory ? cubit.enterDirectory(entry) : null,
+                        onLongPress: () => _showContextMenu(context, entry, cubit),
                       ),
-                    ),
+                    );
+                  },
+                ),
+              ),
             ),
 
             // Bottom bar

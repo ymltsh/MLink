@@ -8,6 +8,7 @@ import 'pages/screen_mirroring_page.dart';
 import 'pages/app_management_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/file_manager_page.dart';
+import 'package:adb_tool/utils/app_output.dart';
 import 'pages/device_operations_page.dart'; // 添加设备操作页面的导入
 import 'utils/settings_manager.dart';  // 添加这一行
 // flutter_bloc was used by file manager; removed along with feature
@@ -611,11 +612,15 @@ class _AdbHomePageState extends State<AdbHomePage> {
                 padding: const EdgeInsets.all(8),
                 color: const Color(0xFF8fb5be).withOpacity(0.05),
                 child: SingleChildScrollView(
-                  child: SelectableText(
-                    output,
-                    style: TextStyle(
-                      color: Colors.grey[800],
-                      fontSize: 13,
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: appOutputNotifier,
+                    builder: (_, val, __) => SelectableText(
+                      // prefer the global notifier content, fallback to the old `output`
+                      val.isNotEmpty ? val : output,
+                      style: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
