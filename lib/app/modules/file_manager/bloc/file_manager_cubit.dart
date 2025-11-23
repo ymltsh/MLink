@@ -4,12 +4,13 @@ import 'package:bloc/bloc.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/file_entry.dart';
-import '../services/adb_file_service_clean.dart';
+import 'package:adb_tool/app/modules/file_manager/services/adb_file_service.dart';
 import 'file_manager_state.dart';
 import 'package:adb_tool/utils/app_output.dart';
 
 class FileManagerCubit extends Cubit<FileManagerState> {
   final AdbFileService service;
+  StreamSubscription<String>? _logSubscription;
 
   // track last logged percent per file tag to avoid flooding the output
   final Map<String, int> _lastLoggedPercent = {};
@@ -18,7 +19,21 @@ class FileManagerCubit extends Cubit<FileManagerState> {
   // target the correct device.
   FileManagerCubit({required String deviceSerial})
       : service = AdbFileService(deviceSerial: deviceSerial),
-        super(FileManagerState.initial());
+        super(FileManagerState.initial()) {
+    // 绑定日志流
+    _logSubscription = service.logStream.listen((raw) {
+      appendAppOutput('[ADB] $raw');
+    });
+  }
+
+  @override
+  Future<void> close() async {
+    await _logSubscription?.cancel();
+    try {
+      service.dispose();
+    } catch (_) {}
+    return super.close();
+  }
 
   Future<void> loadPath(String path) async {
     // 1. 规范化输入路径，避免多斜杠或拼接错误

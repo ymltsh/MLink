@@ -14,9 +14,21 @@ class ADBFileServiceException implements Exception {
   String toString() => 'ADBFileServiceException: $message';
 }
 
+
 class AdbFileService {
   final String? deviceSerial;
+
+  // 日志流控制器
+  final _logController = StreamController<String>.broadcast();
+  Stream<String> get logStream => _logController.stream;
+
   AdbFileService({this.deviceSerial});
+
+  // 日志辅助方法
+  void _verbose(String msg) {
+    print(msg);
+    _logController.add(msg);
+  }
 
   /// 基础 ADB 命令参数
   List<String> _baseAdbArgs() {
@@ -26,29 +38,24 @@ class AdbFileService {
 
   /// 执行 Shell 命令的核心方法（增强了日志和错误处理）
   Future<ProcessResult> _runShell(String cmd, {bool useRoot = false}) async {
-    // 1. 构造完整的 adb shell 命令
     final shellCmd = useRoot ? 'su -c "$cmd"' : cmd;
     final args = List<String>.from(_baseAdbArgs())..addAll(['shell', shellCmd]);
-
     try {
-      // 2. 打印调试日志（这是真正的完整命令）
-      print('DEBUG_EXEC: ${args.join(' ')}');
-
-      // 关键修改：添加 stdoutEncoding: utf8，强制使用 UTF-8 解码防止中文乱码
+      _verbose('EXEC: ${args.join(' ')}');
       final result = await runExecutableArguments(
         args.first,
         args.sublist(1),
         stdoutEncoding: utf8,
       );
-
-      // 3. 如果有标准错误输出，也打印出来
-      if (result.stderr.toString().isNotEmpty) {
-        print('DEBUG_ERR: ${result.stderr}');
+      if (result.stdout.toString().isNotEmpty) {
+        _verbose('OUT: ${result.stdout}');
       }
-
+      if (result.stderr.toString().isNotEmpty) {
+        _verbose('ERR: ${result.stderr}');
+      }
       return result;
     } catch (e) {
-      print('DEBUG_CRASH: $e');
+      _verbose('CRASH: $e');
       throw ADBFileServiceException('执行命令失败: $e');
     }
   }
@@ -80,7 +87,7 @@ class AdbFileService {
   List<FileEntry> _parseLsSmart(String output, String parentPath) {
     // DEBUG: 打印原始 ls 输出，便于排查解析问题
     try {
-      print('DEBUG_LS_RAW:\n${output}');
+      _verbose('LS_RAW:\n${output}');
     } catch (_) {}
     // 确保 parentPath 已标准化
     final normalizedParent = p.posix.normalize(parentPath);
@@ -173,7 +180,7 @@ class AdbFileService {
 
         // 解析成功，打印解析结果便于调试
         try {
-          print('DEBUG_PARSED: Name=$name, Date=$modifiedTime, Size=$size');
+          _verbose('PARSED: Name=$name, Date=$modifiedTime, Size=$size');
         } catch (_) {}
 
         entries.add(FileEntry(
@@ -188,7 +195,7 @@ class AdbFileService {
       } catch (e) {
         // 如果解析失败，打印出错的行与异常信息
         try {
-          print('DEBUG_PARSE_ERROR: Line=[${line}], Error=$e');
+          _verbose('PARSE_ERROR: Line=[${line}], Error=$e');
         } catch (_) {}
         continue;
       }
@@ -205,12 +212,13 @@ class AdbFileService {
 
   Stream<double> push(String localPath, String remotePath, {bool useRoot = false}) async* {
     final targetRemote = p.posix.normalize(remotePath);
-    final args = List<String>.from(_baseAdbArgs())..addAll(['push', localPath, targetRemote]);
+    final args = List<String>.from(_baseAdbArgs())..addAll(['push', '-p', '-a', localPath, targetRemote]);
+    _verbose('CMD: ${args.join(' ')}');
     try {
       final proc = await Process.start(args.first, args.sublist(1));
       final controller = StreamController<double>();
-
       proc.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+        _verbose('RAW_OUT: $line');
         final m = RegExp(r'(\d+)%').firstMatch(line);
         if (m != null) {
           final pct = double.tryParse(m.group(1)!) ?? 0.0;
@@ -218,49 +226,58 @@ class AdbFileService {
         }
       });
       proc.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+        _verbose('RAW_ERR: $line');
         final m = RegExp(r'(\d+)%').firstMatch(line);
         if (m != null) {
           final pct = double.tryParse(m.group(1)!) ?? 0.0;
           controller.add(pct / 100.0);
         }
       });
-
       final exitCode = await proc.exitCode;
+      _verbose('EXIT: $exitCode');
       if (exitCode != 0) {
         controller.addError(ADBFileServiceException('adb push 失败，exit code: $exitCode'));
       }
       await controller.close();
       yield* controller.stream;
     } catch (e) {
+      _verbose('PUSH_ERR: $e');
       throw ADBFileServiceException('adb push 异常: $e');
     }
   }
 
   Stream<double> pull(String remotePath, String localPath, {bool useRoot = false}) async* {
     final targetRemote = p.posix.normalize(remotePath);
-    final args = List<String>.from(_baseAdbArgs())..addAll(['pull', targetRemote, localPath]);
+    final args = List<String>.from(_baseAdbArgs())..addAll(['pull', '-p', '-a', targetRemote, localPath]);
+    _verbose('CMD: ${args.join(' ')}');
     try {
       final proc = await Process.start(args.first, args.sublist(1));
       final controller = StreamController<double>();
-
       proc.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+        _verbose('RAW_OUT: $line');
         final m = RegExp(r'(\d+)%').firstMatch(line);
         if (m != null) controller.add(double.parse(m.group(1)!) / 100.0);
       });
       proc.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+        _verbose('RAW_ERR: $line');
         final m = RegExp(r'(\d+)%').firstMatch(line);
         if (m != null) controller.add(double.parse(m.group(1)!) / 100.0);
       });
-
       final exitCode = await proc.exitCode;
+      _verbose('EXIT: $exitCode');
       if (exitCode != 0) {
         controller.addError(ADBFileServiceException('adb pull 失败，exit code: $exitCode'));
       }
       await controller.close();
       yield* controller.stream;
     } catch (e) {
+      _verbose('PULL_ERR: $e');
       throw ADBFileServiceException('adb pull 异常: $e');
     }
+  }
+  // 释放资源
+  void dispose() {
+    _logController.close();
   }
 
   Future<void> delete(String remotePath, {bool useRoot = false}) async {
