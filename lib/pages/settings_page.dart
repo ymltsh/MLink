@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../utils/settings_manager.dart'; // 添加这一行
-import '../app/modules/settings/bloc/theme_cubit.dart';
+import 'package:adb_tool/app/modules/settings/bloc/theme_cubit.dart';
 
 class SettingsPage extends StatelessWidget {
   final TextEditingController defaultBitrateController;
@@ -71,6 +71,25 @@ class SettingsPage extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 实时预览当前 seed color
+                Row(
+                  children: [
+                    const Text('当前主题色：'),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: state.seedColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('#${state.seedColor.value.toRadixString(16).toUpperCase()}'),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 const Text('外观模式'),
                 const SizedBox(height: 8),
                 SegmentedButton<ThemeMode>(
@@ -192,9 +211,16 @@ class SettingsPage extends StatelessWidget {
                             } else {
                               throw FormatException('Invalid hex');
                             }
-                            context.read<ThemeCubit>().setSeedColor(newColor);
+                            await context.read<ThemeCubit>().setSeedColor(newColor);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('主题颜色已应用: #${cleaned.toUpperCase()}')),
+                              );
+                            }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无效的十六进制颜色')));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无效的十六进制颜色')));
+                            }
                           }
                         }
                       },
@@ -417,7 +443,7 @@ class SettingsPage extends StatelessWidget {
                 Row(
                   children: [
                     Text('版本：', style: TextStyle(color: Colors.grey[600])),
-                    const Text('1.0.0'),
+                    const Text('1.0.5'),
                   ],
                 ),
                 const SizedBox(height: 4),

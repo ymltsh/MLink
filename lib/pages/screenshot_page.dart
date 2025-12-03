@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -99,13 +98,100 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        // 连续截屏控制区域
+                        Column(
                           children: [
-                            ElevatedButton.icon(
-                              icon: state.isCapturing ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.camera_alt),
-                              label: const Text('立即截屏'),
-                              onPressed: state.isCapturing ? null : () => cubit.capture(widget.serial),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ElevatedButton.icon(
+                                  icon: state.isCapturing ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.camera_alt),
+                                  label: const Text('立即截屏'),
+                                  onPressed: state.isCapturing ? null : () => cubit.capture(widget.serial),
+                                ),
+                                const SizedBox(width: 12),
+                                ElevatedButton.icon(
+                                  icon: state.isContinuousCapturing 
+                                      ? const Icon(Icons.stop, color: Colors.red)
+                                      : const Icon(Icons.timer),
+                                  label: Text(state.isContinuousCapturing ? '停止连续截屏' : '开始连续截屏'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: state.isContinuousCapturing ? Colors.red.shade100 : null,
+                                  ),
+                                  onPressed: () {
+                                    if (state.isContinuousCapturing) {
+                                      cubit.stopContinuousCapture();
+                                    } else {
+                                      cubit.startContinuousCapture(widget.serial);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // 连续截屏设置
+                            if (state.isContinuousCapturing)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text('截屏计数:'),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${state.continuousCaptureCount}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            const SizedBox(height: 8),
+                            // 间隔时间设置
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('间隔时间(秒):'),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 80,
+                                  child: TextField(
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                    controller: TextEditingController(
+                                      text: state.continuousCaptureInterval.toString(),
+                                    )..selection = TextSelection.collapsed(offset: state.continuousCaptureInterval.toString().length),
+                                    onChanged: (value) {
+                                      final interval = int.tryParse(value);
+                                      if (interval != null && interval >= 1 && interval <= 60) {
+                                        cubit.setContinuousCaptureInterval(interval, serial: widget.serial);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.remove),
+                                  onPressed: () {
+                                    final newInterval = state.continuousCaptureInterval - 1;
+                                    if (newInterval >= 1) {
+                                      cubit.setContinuousCaptureInterval(newInterval, serial: widget.serial);
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: () {
+                                    final newInterval = state.continuousCaptureInterval + 1;
+                                    if (newInterval <= 60) {
+                                      cubit.setContinuousCaptureInterval(newInterval, serial: widget.serial);
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
                           ],
                         ),

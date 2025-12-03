@@ -35,16 +35,20 @@ class ThemeCubit extends Cubit<ThemeState> {
       modeIndex.clamp(0, ThemeMode.values.length - 1),
     );
 
-    emit(state.copyWith(themeMode: mode, seedColor: Color(seedValue)));
+    final newColor = Color(seedValue);
+    debugPrint('ThemeCubit.loadTheme -> mode=$mode seedColor=${newColor.value.toRadixString(16)}');
+    emit(state.copyWith(themeMode: mode, seedColor: newColor));
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
+    debugPrint('ThemeCubit.setThemeMode -> $mode');
     emit(state.copyWith(themeMode: mode));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyThemeModeIndex, ThemeMode.values.indexOf(mode));
   }
 
   Future<void> setSeedColor(Color color) async {
+    debugPrint('ThemeCubit.setSeedColor -> ${color.value.toRadixString(16)}');
     emit(state.copyWith(seedColor: color));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keySeedColorValue, color.value);

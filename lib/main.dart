@@ -238,7 +238,12 @@ class _AdbHomePageState extends State<AdbHomePage> {
   }
 
   Future<void> scanAdbDevices() async {
-    setState(() {
+    void safeSetState(VoidCallback fn) {
+      if (!mounted) return;
+      setState(fn);
+    }
+
+    safeSetState(() {
       foundAdbDevices.clear();
       output = '正在扫描所有网卡局域网5555端口，请稍候...';
     });
@@ -281,7 +286,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
         final future = Socket.connect(ip, 5555, timeout: const Duration(milliseconds: 300)).then((socket) {
           socket.destroy();
           if (!foundAdbDevices.contains(ip)) {
-            setState(() {
+            safeSetState(() {
               foundAdbDevices.add(ip);
               output = '发现设备：\n${foundAdbDevices.join('\n')}';
             });
@@ -293,7 +298,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
     }
     await Future.wait(futures);
 
-    setState(() {
+    safeSetState(() {
       output = foundAdbDevices.isEmpty
           ? '未发现开放5555端口的设备'
           : '发现如下设备：\n${foundAdbDevices.join('\n')}';

@@ -98,8 +98,10 @@ class _FileManagerViewState extends State<_FileManagerView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               color: Colors.grey.shade50,
-              child: Row(
-                children: [
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
                   ElevatedButton.icon(
                     icon: const Icon(Icons.arrow_upward),
                     label: const Text('返回上一层'),
@@ -212,7 +214,8 @@ class _FileManagerViewState extends State<_FileManagerView> {
                     padding: const EdgeInsets.only(right: 8.0),
                     child: Text('已选: ${selected.length} / 条目: ${state.files.length}'),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
 
