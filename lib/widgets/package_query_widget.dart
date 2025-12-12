@@ -53,7 +53,8 @@ class PackageQueryWidget extends StatelessWidget {
               spacing: 8,
               runSpacing: 4,
               children: packageQueryResult.map((pkg) {
-                final pkgName = pkg.replaceFirst('package:', '');
+                // 确保包名被正确清理：去除所有空白字符和换行符
+                final pkgName = pkg.trim();
                 return Chip(
                   label: Text(pkgName, style: const TextStyle(fontSize: 12)),
                   onDeleted: () => onPackageSelected?.call(pkgName),
@@ -69,7 +70,8 @@ class PackageQueryWidget extends StatelessWidget {
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final pkg = packageQueryResult[index];
-                  final pkgName = pkg.replaceFirst('package:', '');
+                  // 确保包名被正确清理：去除所有空白字符和换行符
+                  final pkgName = pkg.trim();
                   return ListTile(
                     dense: true,
                     title: Text(pkgName, style: const TextStyle(fontSize: 14)),

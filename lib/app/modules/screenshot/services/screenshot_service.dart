@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 
 class ScreenshotService {
   static const _remoteTmpPath = '/sdcard/tmp_screen.png';
-  static const _folderName = 'adb_tool_screenshots';
+  static const _folderName = 'MagicLink_Screenshots';
 
   Future<Directory> _ensureLocalDir() async {
     final docs = await getApplicationDocumentsDirectory();

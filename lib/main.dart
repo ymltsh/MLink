@@ -89,6 +89,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
   bool enablePhysicalKeyboard = false;  // 添加这一行
   bool disableAudio = false;
   bool enableRecording = false;
+  bool autoCleanAdbProcess = false;  // 添加ADB进程清理开关状态
 
   // 添加输出面板显示状态控制
   bool _showOutputPanel = true;
@@ -115,6 +116,7 @@ class _AdbHomePageState extends State<AdbHomePage> {
       enablePhysicalKeyboard = settings[SettingsManager.keyEnablePhysicalKeyboard];  // 添加这一行
       disableAudio = settings[SettingsManager.keyDisableAudio];
       enableRecording = settings[SettingsManager.keyEnableRecording];
+      autoCleanAdbProcess = settings[SettingsManager.keyAutoCleanAdbProcess];  // 添加这一行
     });
 
     // 如果启用了自动扫描连接，则执行扫描
@@ -217,7 +219,16 @@ class _AdbHomePageState extends State<AdbHomePage> {
     }
     final result = await _runWithSmartEncoding(cmd);
     final lines = result.stdout.toString().split('\n');
-    final filtered = lines.where((line) => line.contains(keyword)).toList();
+    // 清理包名：去除换行符和空白字符，并提取纯包名
+    final filtered = lines.where((line) => line.contains(keyword)).map((line) {
+      // 去除换行符和空白字符
+      final cleanedLine = line.trim();
+      // 提取包名部分（去除"package:"前缀）
+      if (cleanedLine.startsWith('package:')) {
+        return cleanedLine.substring(8).trim(); // 去除"package:"前缀并清理
+      }
+      return cleanedLine;
+    }).where((pkg) => pkg.isNotEmpty).toList();
     setState(() {
       packageQueryResult = filtered;
       output = filtered.isEmpty ? '未找到相关包名' : filtered.join('\n');
@@ -235,6 +246,35 @@ class _AdbHomePageState extends State<AdbHomePage> {
       '--start-app=$pkg',
       '--no-vd-system-decorations'
     ]);
+  }
+
+  // ADB进程清理方法
+  Future<void> cleanAdbProcesses() async {
+    setState(() => output = '正在清理ADB进程...');
+    
+    try {
+      if (Platform.isWindows) {
+        // Windows: 使用taskkill命令强制终止ADB进程
+        final result = await _runWithSmartEncoding(['taskkill', '/F', '/IM', 'adb.exe', '/T']);
+        setState(() {
+          output = 'ADB进程清理完成: ${result.stdout?.toString() ?? "成功"}';
+        });
+      } else if (Platform.isLinux || Platform.isMacOS) {
+        // Linux/macOS: 使用killall命令强制终止ADB进程
+        final result = await _runWithSmartEncoding(['killall', '-9', 'adb']);
+        setState(() {
+          output = 'ADB进程清理完成: ${result.stdout?.toString() ?? "成功"}';
+        });
+      } else {
+        setState(() {
+          output = '当前平台不支持自动清理ADB进程';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        output = 'ADB进程清理失败: $e';
+      });
+    }
   }
 
   Future<void> scanAdbDevices() async {
@@ -583,6 +623,17 @@ class _AdbHomePageState extends State<AdbHomePage> {
           setState(() => enableRecording = value);
           SettingsManager.saveSettings(enableRecording: value);
         },
+        autoCleanAdbProcess: autoCleanAdbProcess,
+        onAutoCleanAdbProcessChanged: (value) {
+          setState(() => autoCleanAdbProcess = value);
+          SettingsManager.saveSettings(autoCleanAdbProcess: value);
+          
+          // 如果启用了自动清理，立即执行一次清理
+          if (value) {
+            cleanAdbProcesses();
+          }
+        },
+        onManualCleanAdbProcess: cleanAdbProcesses,
       );
   }
 }
@@ -612,19 +663,36 @@ class _AdbHomePageState extends State<AdbHomePage> {
                   '输出结果：',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: Icon(
-                    _showOutputPanel 
-                        ? Icons.keyboard_arrow_right 
-                        : Icons.keyboard_arrow_left,
-                    color: const Color(0xFF8fb5be),
-                  ),
-                  onPressed: () {
-                    setState(() => _showOutputPanel = !_showOutputPanel);
-                  },
-                  tooltip: _showOutputPanel ? '收起' : '展开',
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_showOutputPanel)
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(
+                          Icons.clear,
+                          color: Color(0xFF8fb5be),
+                          size: 18,
+                        ),
+                        onPressed: _clearOutput,
+                        tooltip: '清除输出',
+                      ),
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Icon(
+                        _showOutputPanel 
+                            ? Icons.keyboard_arrow_right 
+                            : Icons.keyboard_arrow_left,
+                        color: const Color(0xFF8fb5be),
+                      ),
+                      onPressed: () {
+                        setState(() => _showOutputPanel = !_showOutputPanel);
+                      },
+                      tooltip: _showOutputPanel ? '收起' : '展开',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -653,5 +721,13 @@ class _AdbHomePageState extends State<AdbHomePage> {
         ],
       ),
     );
+  }
+
+  // 清除输出内容
+  void _clearOutput() {
+    setState(() {
+      output = '';
+    });
+    clearAppOutput();
   }
 }

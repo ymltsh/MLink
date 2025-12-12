@@ -95,15 +95,20 @@ class AppManagementPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('包名查询|卸载', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('包名查询|管理', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         PackageQueryWidget(
           packageController: appKeywordController,
           onQueryPackages: onQueryPackages,
           packageQueryResult: packageQueryResult,
           showCopyButton: true,
-          // 添加卸载功能按钮
+          // 添加应用管理功能按钮
           trailingButtons: (String package) => [
+            IconButton(
+              icon: const Icon(Icons.open_in_browser),
+              onPressed: () => onRunCommand(['adb', 'shell', 'monkey', '-p', package, '-c', 'android.intent.category.LAUNCHER', '1']),
+              tooltip: '打开应用',
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               onPressed: () => onRunCommand(['adb', 'uninstall', package]),

@@ -14,6 +14,10 @@ class SettingsManager {
   static const String keyEnablePhysicalKeyboard = 'enablePhysicalKeyboard';
   static const String keyDisableAudio = 'disableAudio';
   static const String keyEnableRecording = 'enableRecording';
+  static const String keyHistoryDevices = 'historyDevices';
+  
+  // ADB进程清理设置
+  static const String keyAutoCleanAdbProcess = 'autoCleanAdbProcess';
 
   static Future<void> saveSettings({
     bool? autoScanAndConnect,
@@ -27,6 +31,7 @@ class SettingsManager {
     bool? enablePhysicalKeyboard,
     bool? disableAudio,
     bool? enableRecording,
+    bool? autoCleanAdbProcess,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -63,6 +68,21 @@ class SettingsManager {
     if (enableRecording != null) {
       await prefs.setBool(keyEnableRecording, enableRecording);
     }
+    if (autoCleanAdbProcess != null) {
+      await prefs.setBool(keyAutoCleanAdbProcess, autoCleanAdbProcess);
+    }
+  }
+
+  // 保存历史设备列表
+  static Future<void> saveHistoryDevices(List<String> devices) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(keyHistoryDevices, devices);
+  }
+
+  // 加载历史设备列表
+  static Future<List<String>> loadHistoryDevices() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(keyHistoryDevices) ?? [];
   }
 
   static Future<Map<String, dynamic>> loadSettings() async {
@@ -80,6 +100,7 @@ class SettingsManager {
       keyEnablePhysicalKeyboard: prefs.getBool(keyEnablePhysicalKeyboard) ?? false,
       keyDisableAudio: prefs.getBool(keyDisableAudio) ?? false,
       keyEnableRecording: prefs.getBool(keyEnableRecording) ?? false,
+      keyAutoCleanAdbProcess: prefs.getBool(keyAutoCleanAdbProcess) ?? false,
     };
   }
 }

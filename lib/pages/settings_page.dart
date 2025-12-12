@@ -16,6 +16,7 @@ class SettingsPage extends StatelessWidget {
   final bool enablePhysicalKeyboard;
   final bool disableAudio;
   final bool enableRecording;
+  final bool autoCleanAdbProcess;
   final ValueChanged<bool> onKeepScreenOnChanged;
   final ValueChanged<bool> onShowTouchesChanged;
   final ValueChanged<bool> onAutoScanAndConnectChanged;
@@ -24,6 +25,8 @@ class SettingsPage extends StatelessWidget {
   final ValueChanged<bool> onEnablePhysicalKeyboardChanged;
   final ValueChanged<bool> onDisableAudioChanged;
   final ValueChanged<bool> onEnableRecordingChanged;
+  final ValueChanged<bool> onAutoCleanAdbProcessChanged;
+  final VoidCallback onManualCleanAdbProcess;
 
   const SettingsPage({
     super.key,
@@ -47,6 +50,9 @@ class SettingsPage extends StatelessWidget {
     required this.enableRecording,
     required this.onDisableAudioChanged,
     required this.onEnableRecordingChanged,
+    required this.autoCleanAdbProcess,
+    required this.onAutoCleanAdbProcessChanged,
+    required this.onManualCleanAdbProcess,
   });
 
   Widget _buildPersonalizationSection(BuildContext context) {
@@ -416,6 +422,26 @@ class SettingsPage extends StatelessWidget {
             onEnableRecordingChanged(value);
             SettingsManager.saveSettings(enableRecording: value);
           },
+        ),
+        // ADB进程清理设置
+        SwitchListTile(
+          title: const Text('自动清理ADB进程'),
+          subtitle: const Text('每次启动时自动清理残留的ADB进程'),
+          value: autoCleanAdbProcess,
+          onChanged: (value) {
+            onAutoCleanAdbProcessChanged(value);
+            SettingsManager.saveSettings(autoCleanAdbProcess: value);
+          },
+        ),
+        // 手动清理ADB进程按钮
+        ListTile(
+          title: const Text('立即清理ADB进程'),
+          subtitle: const Text('强制清理所有残留的ADB进程'),
+          trailing: ElevatedButton.icon(
+            onPressed: onManualCleanAdbProcess,
+            icon: const Icon(Icons.cleaning_services),
+            label: const Text('清理'),
+          ),
         ),
       ],
     );

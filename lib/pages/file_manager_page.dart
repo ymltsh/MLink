@@ -33,14 +33,12 @@ class _FileManagerView extends StatefulWidget {
 
 class _FileManagerViewState extends State<_FileManagerView> {
   final TextEditingController _pathController = TextEditingController();
-  final TextEditingController _searchController = TextEditingController();
   final TextEditingController _renameController = TextEditingController();
   bool _isEditingPath = false;
 
   @override
   void dispose() {
     _pathController.dispose();
-    _searchController.dispose();
     _renameController.dispose();
     super.dispose();
   }
@@ -216,31 +214,6 @@ class _FileManagerViewState extends State<_FileManagerView> {
                   ),
                   ],
                 ),
-              ),
-            ),
-
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(hintText: '搜索文件/名称', isDense: true),
-                      onSubmitted: (v) {
-                        if (v.trim().isNotEmpty) context.read<FileManagerCubit>().search(v.trim());
-                      },
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () {
-                      final v = _searchController.text.trim();
-                      if (v.isNotEmpty) context.read<FileManagerCubit>().search(v);
-                    },
-                  )
-                ],
               ),
             ),
 
