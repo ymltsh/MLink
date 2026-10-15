@@ -28,7 +28,8 @@ class ThemeCubit extends Cubit<ThemeState> {
 
   Future<void> loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final modeIndex = prefs.getInt(_keyThemeModeIndex) ?? ThemeMode.system.index;
+    final modeIndex =
+        prefs.getInt(_keyThemeModeIndex) ?? ThemeMode.system.index;
     final seedValue = prefs.getInt(_keySeedColorValue) ?? 0xFF0ABAB5;
 
     ThemeMode mode = ThemeMode.values.elementAt(
@@ -36,7 +37,8 @@ class ThemeCubit extends Cubit<ThemeState> {
     );
 
     final newColor = Color(seedValue);
-    debugPrint('ThemeCubit.loadTheme -> mode=$mode seedColor=${newColor.value.toRadixString(16)}');
+    debugPrint(
+        'ThemeCubit.loadTheme -> mode=$mode seedColor=${newColor.toARGB32().toRadixString(16)}');
     emit(state.copyWith(themeMode: mode, seedColor: newColor));
   }
 
@@ -48,9 +50,10 @@ class ThemeCubit extends Cubit<ThemeState> {
   }
 
   Future<void> setSeedColor(Color color) async {
-    debugPrint('ThemeCubit.setSeedColor -> ${color.value.toRadixString(16)}');
+    debugPrint(
+        'ThemeCubit.setSeedColor -> ${color.toARGB32().toRadixString(16)}');
     emit(state.copyWith(seedColor: color));
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_keySeedColorValue, color.value);
+    await prefs.setInt(_keySeedColorValue, color.toARGB32());
   }
 }

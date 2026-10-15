@@ -41,3 +41,15 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release artifacts and local credentials
+__pycache__/
+*.apk
+*.aab
+/mlink-*.zip
+.env
+.env.*
+!.env.example
+android/key.properties
+*.jks
+*.keystore

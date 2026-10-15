@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
+import '../app/modules/screen_mirroring/models/mirror_config.dart';
 
 class ScreenMirroringPage extends StatefulWidget {
+  final MirrorConfig Function() config;
+  final bool isMirrorActive;
+  final VoidCallback onStop;
   final TextEditingController bitrateController;
   final TextEditingController sizeController;
   final TextEditingController appPackageController;
@@ -11,14 +14,12 @@ class ScreenMirroringPage extends StatefulWidget {
   final VoidCallback onQueryPackages;
   final TextEditingController searchController; // 添加搜索关键字控制器
   final List<String> packageQueryResult; // 新增
-  final bool enableH265;
-  final bool enablePhysicalKeyboard;
-  final bool turnScreenOff;
-  final bool disableAudio;    // 添加禁用音频属性
-  final bool enableRecording; // 添加开启录制属性
 
   const ScreenMirroringPage({
     super.key,
+    required this.config,
+    required this.isMirrorActive,
+    required this.onStop,
     required this.bitrateController,
     required this.sizeController,
     required this.appPackageController,
@@ -28,11 +29,6 @@ class ScreenMirroringPage extends StatefulWidget {
     required this.onQueryPackages,
     required this.searchController, // 添加到构造函数
     required this.packageQueryResult, // 新增
-    required this.enableH265,
-    required this.enablePhysicalKeyboard,
-    required this.turnScreenOff,
-    required this.disableAudio,    // 添加到构造函数
-    required this.enableRecording, // 添加到构造函数
   });
 
   @override
@@ -40,25 +36,8 @@ class ScreenMirroringPage extends StatefulWidget {
 }
 
 class ScreenMirroringPageState extends State<ScreenMirroringPage> {
-  void onQueryPackages() {
-    if (widget.searchController.text.isEmpty) return;
+  void onQueryPackages() => widget.onQueryPackages();
 
-    final command = 'adb shell pm list packages | findstr ${widget.searchController.text}';
-    // 执行命令并更新 packageQueryResult
-    Process.run('cmd', ['/c', command]).then((result) {
-      if (result.stdout != null) {
-        final packages = (result.stdout as String)
-            .split('\n')
-            .where((line) => line.trim().isNotEmpty)
-            .toList();
-        // 更新状态
-        setState(() {
-          widget.packageQueryResult.clear(); // 清空原有数据
-          widget.packageQueryResult.addAll(packages); // 添加新查询结果
-        });
-      }
-    });
-  }
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -73,57 +52,44 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
     );
   }
 
+  void _start(
+      {bool audioOnly = false, bool camera = false, bool singleApp = false}) {
+    try {
+      final args = widget.config().command(
+          bitrateOverride: widget.bitrateController.text,
+          sizeOverride: widget.sizeController.text,
+          audioOnly: audioOnly,
+          camera: camera,
+          package: singleApp ? widget.appPackageController.text.trim() : null,
+          displaySize: widget.appDisplaySizeController.text,
+          dpiOverride: widget.appDisplayDpiController.text);
+      widget.onRunCommand(args);
+    } on FormatException catch (error) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
   Widget _buildBasicMirroring() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('基础投屏', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                final args = ['scrcpy'];
-                if (widget.turnScreenOff) {
-                  args.add('--turn-screen-off');
-                }
-                if (widget.enableH265) {
-                  args.add('--video-codec=h265');
-                }
-                if (widget.enablePhysicalKeyboard) {
-                  args.add('--keyboard=uhid');
-                }
-                // 添加音频和录制参数
-                if (widget.disableAudio) {
-                  args.add('--no-audio');
-                }
-                if (widget.enableRecording) {
-                  args.add('--record=scrcpy_${DateTime.now().millisecondsSinceEpoch}.mp4');
-                }
-                widget.onRunCommand(args);
-              },
-              child: const Text('开始投屏'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final args = ['scrcpy', '--no-video'];
-                widget.onRunCommand(args);
-              },
-              child: const Text('仅音频投送（安卓11+）'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final args = ['scrcpy', '--video-source=camera'];
-                widget.onRunCommand(args);
-              },
-              child: const Text('仅投送摄像头（安卓12+）'),
-            ),
-          ],
-        ),
-      ],
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('基础投屏', style: TextStyle(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        ElevatedButton(
+            onPressed: widget.isMirrorActive ? null : () => _start(),
+            child: const Text('开始投屏')),
+        ElevatedButton(
+            onPressed:
+                widget.isMirrorActive ? null : () => _start(audioOnly: true),
+            child: const Text('仅音频投送（安卓11+）')),
+        ElevatedButton(
+            onPressed:
+                widget.isMirrorActive ? null : () => _start(camera: true),
+            child: const Text('仅投送摄像头（安卓12+）')),
+        if (widget.isMirrorActive)
+          ElevatedButton(onPressed: widget.onStop, child: const Text('停止投屏')),
+      ]),
+    ]);
   }
 
   Widget _buildQualitySettings() {
@@ -139,7 +105,7 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
                 controller: widget.bitrateController,
                 decoration: const InputDecoration(
                   labelText: '码率（M）',
-                  hintText: '例如：8',
+                  hintText: '留空使用默认码率',
                 ),
               ),
             ),
@@ -149,7 +115,7 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
                 controller: widget.sizeController,
                 decoration: const InputDecoration(
                   labelText: '分辨率最大值',
-                  hintText: '例如：1080',
+                  hintText: '留空使用默认分辨率',
                 ),
               ),
             ),
@@ -157,32 +123,7 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
         ),
         const SizedBox(height: 8),
         ElevatedButton(
-          onPressed: () {
-            final args = [
-              'scrcpy',
-              '-b',
-              '${widget.bitrateController.text}m',
-              '-m',
-              widget.sizeController.text,
-            ];
-            if (widget.turnScreenOff) {
-              args.add('--turn-screen-off');
-            }
-            if (widget.enableH265) {
-              args.add('--video-codec=h265');
-            }
-            if (widget.enablePhysicalKeyboard) {
-              args.add('--keyboard=uhid');
-            }
-            // 添加音频和录制参数
-            if (widget.disableAudio) {
-              args.add('--no-audio');
-            }
-            if (widget.enableRecording) {
-              args.add('--record=scrcpy_${DateTime.now().millisecondsSinceEpoch}.mp4');
-            }
-            widget.onRunCommand(args);
-          },
+          onPressed: widget.isMirrorActive ? null : () => _start(),
           child: const Text('应用设置并投屏'),
         ),
       ],
@@ -199,8 +140,8 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('第一步：查询应用包名', 
-              style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text('第一步：查询应用包名',
+                style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -235,9 +176,11 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey[200],
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                       ),
-                      child: Text(cleanPkg, style: const TextStyle(fontSize: 13)),
+                      child:
+                          Text(cleanPkg, style: const TextStyle(fontSize: 13)),
                     );
                   }).toList(),
                 ),
@@ -249,8 +192,8 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('第二步：输入包名进行投屏', 
-              style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text('第二步：输入包名进行投屏',
+                style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 8),
             TextField(
               controller: widget.appPackageController,
@@ -266,8 +209,8 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('第三步：开始投屏', 
-              style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text('第三步：开始投屏',
+                style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 8),
             // 添加显示参数设置
             Row(
@@ -287,7 +230,7 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
                     controller: widget.appDisplayDpiController,
                     decoration: const InputDecoration(
                       labelText: 'DPI',
-                      hintText: '例如：420',
+                      hintText: '留空使用默认 DPI',
                     ),
                   ),
                 ),
@@ -295,52 +238,15 @@ class ScreenMirroringPageState extends State<ScreenMirroringPage> {
             ),
             const SizedBox(height: 8),
             ElevatedButton(
-              onPressed: () {
-                final pkg = widget.appPackageController.text.trim();
-                if (pkg.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('请先查询并选择应用包名')),
-                  );
-                  return;
-                }
-
-                final List<String> command = ['scrcpy', '--start-app=$pkg'];
-                
-                // 添加显示参数
-                if (widget.appDisplaySizeController.text.isNotEmpty && 
-                    widget.appDisplayDpiController.text.isNotEmpty) {
-                  final display = '${widget.appDisplaySizeController.text}/${widget.appDisplayDpiController.text}';
-                  command.addAll(['--new-display=$display']);
-                }
-                
-                // 添加通用设置参数
-                if (widget.turnScreenOff) {
-                  command.add('--turn-screen-off');
-                }
-                if (widget.enableH265) {
-                  command.add('--video-codec=h265');
-                }
-                if (widget.enablePhysicalKeyboard) {
-                  command.add('--keyboard=uhid');
-                }
-                // 添加音频和录制参数
-                if (widget.disableAudio) {
-                  command.add('--no-audio');
-                }
-                if (widget.enableRecording) {
-                  command.add('--record=scrcpy_${DateTime.now().millisecondsSinceEpoch}.mp4');
-                }
-                
-                command.add('--no-vd-system-decorations');
-                widget.onRunCommand(command);
-              },
+              onPressed:
+                  widget.isMirrorActive ? null : () => _start(singleApp: true),
               child: const Text('启动单App投屏'),
             ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          '提示：单App投屏功能需要 scrcpy 1.25 及以上版本',
+          '提示：单App投屏使用虚拟显示；DPI 留空时使用设置中的默认值',
           style: TextStyle(
             fontSize: 12,
             color: Colors.grey[600],

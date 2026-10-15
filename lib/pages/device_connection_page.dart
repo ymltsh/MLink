@@ -1,7 +1,10 @@
+import '../app/modules/device_connection/widgets/pair_device_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceConnectionPage extends StatefulWidget {
+  final TextEditingController scanRangeController;
+  final bool isScanning;
   final List<String> deviceList;
   final String? selectedDevice;
   final List<String> foundAdbDevices;
@@ -17,6 +20,8 @@ class DeviceConnectionPage extends StatefulWidget {
 
   const DeviceConnectionPage({
     super.key,
+    required this.scanRangeController,
+    required this.isScanning,
     required this.deviceList,
     required this.selectedDevice,
     required this.foundAdbDevices,
@@ -49,6 +54,7 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
   Future<void> _loadHistoryDevices() async {
     final prefs = await SharedPreferences.getInstance();
     final history = prefs.getStringList('historyDevices') ?? [];
+    if (!mounted) return;
     setState(() {
       _historyDevices = history;
     });
@@ -63,7 +69,7 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
   // 添加设备到历史列表
   void _addToHistory(String deviceIp) {
     if (deviceIp.isEmpty) return;
-    
+
     setState(() {
       // 移除已存在的相同设备
       _historyDevices.remove(deviceIp);
@@ -103,10 +109,18 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
       } else {
         widget.portController.text = '5555';
       }
-      
+
       // 自动连接
       widget.onRunCommand(['adb', 'connect', deviceIp]);
     }
+  }
+
+  Future<void> _pairDevice() async {
+    final command = await showDialog<List<String>>(
+        context: context,
+        builder: (_) =>
+            PairDeviceDialog(initialHost: widget.ipController.text));
+    if (mounted && command != null) widget.onRunCommand(command);
   }
 
   // 构建历史设备列表UI
@@ -119,7 +133,8 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
             const Text('历史连接设备', style: TextStyle(fontWeight: FontWeight.bold)),
             const Spacer(),
             IconButton(
-              icon: Icon(_historyExpanded ? Icons.expand_less : Icons.expand_more),
+              icon: Icon(
+                  _historyExpanded ? Icons.expand_less : Icons.expand_more),
               onPressed: () {
                 setState(() {
                   _historyExpanded = !_historyExpanded;
@@ -134,20 +149,23 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
             const Text('暂无历史连接设备', style: TextStyle(color: Colors.grey))
           else
             Column(
-              children: _historyDevices.map((device) => Card(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                child: ListTile(
-                  leading: const Icon(Icons.history, color: Colors.blue),
-                  title: Text(device),
-                  subtitle: const Text('点击快速连接'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => _removeFromHistory(device),
-                    tooltip: '删除',
-                  ),
-                  onTap: () => _connectHistoryDevice(device),
-                ),
-              )).toList(),
+              children: _historyDevices
+                  .map((device) => Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          leading:
+                              const Icon(Icons.history, color: Colors.blue),
+                          title: Text(device),
+                          subtitle: const Text('点击快速连接'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () => _removeFromHistory(device),
+                            tooltip: '删除',
+                          ),
+                          onTap: () => _connectHistoryDevice(device),
+                        ),
+                      ))
+                  .toList(),
             ),
           if (_historyDevices.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -217,13 +235,15 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
                   ? const Text('无设备')
                   : Wrap(
                       spacing: 8,
-                      children: widget.deviceList.map((d) => ChoiceChip(
-                        label: Text(d),
-                        selected: widget.selectedDevice == d,
-                        onSelected: (selected) {
-                          widget.onDeviceSelected(selected ? d : null);
-                        },
-                      )).toList(),
+                      children: widget.deviceList
+                          .map((d) => ChoiceChip(
+                                label: Text(d),
+                                selected: widget.selectedDevice == d,
+                                onSelected: (selected) {
+                                  widget.onDeviceSelected(selected ? d : null);
+                                },
+                              ))
+                          .toList(),
                     ),
             ),
           ],
@@ -251,6 +271,9 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('无线连接', style: TextStyle(fontWeight: FontWeight.bold)),
+        TextButton(
+            onPressed: _pairDevice, child: const Text('无线调试配对（Android 11+）')),
+        const Text('配对成功后，使用无线调试页面显示的连接端口连接。'),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -294,24 +317,34 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
           ],
         ),
         const SizedBox(height: 8),
+        TextField(
+            controller: widget.scanRangeController,
+            enabled: !widget.isScanning,
+            decoration: const InputDecoration(
+                labelText: '扫描范围（起始IP-结束IP）',
+                hintText: '例如：192.168.1.1-192.168.1.254')),
+        const SizedBox(height: 8),
         Row(
           children: [
             ElevatedButton(
               onPressed: widget.onScanDevices,
-              child: const Text('扫描局域网设备'),
+              child: Text(widget.isScanning ? '停止扫描' : '扫描指定范围'),
             ),
             const SizedBox(width: 16),
             if (widget.foundAdbDevices.isNotEmpty) ...[
               Expanded(
                 child: Wrap(
                   spacing: 8,
-                  children: widget.foundAdbDevices.map((ip) => ChoiceChip(
-                    label: Text(ip),
-                    selected: widget.selectedFoundDevice == ip,
-                    onSelected: (selected) {
-                      widget.onFoundDeviceSelected(selected ? ip : null);
-                    },
-                  )).toList(),
+                  children: widget.foundAdbDevices
+                      .map((ip) => ChoiceChip(
+                            label: Text(ip),
+                            selected: widget.selectedFoundDevice == ip,
+                            onSelected: (selected) {
+                              widget
+                                  .onFoundDeviceSelected(selected ? ip : null);
+                            },
+                          ))
+                      .toList(),
                 ),
               ),
             ],
@@ -335,9 +368,9 @@ class _DeviceConnectionPageState extends State<DeviceConnectionPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('设备信息', 
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-                  ),
+                  const Text('设备信息',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   _buildInfoRow(
                     icon: Icons.phone_android,

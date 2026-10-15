@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../core/config/app_config.dart';
+import '../app/modules/settings/widgets/update_check_tile.dart';
+import '../app/modules/tools/widgets/tool_environment_card.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../utils/settings_manager.dart'; // 添加这一行
 import 'package:adb_tool/app/modules/settings/bloc/theme_cubit.dart';
@@ -11,7 +14,7 @@ class SettingsPage extends StatelessWidget {
   final bool keepScreenOn;
   final bool showTouches;
   final bool autoScanAndConnect;
-  final bool turnScreenOff;  // 添加新属性
+  final bool turnScreenOff; // 添加新属性
   final bool enableH265;
   final bool enablePhysicalKeyboard;
   final bool disableAudio;
@@ -20,7 +23,7 @@ class SettingsPage extends StatelessWidget {
   final ValueChanged<bool> onKeepScreenOnChanged;
   final ValueChanged<bool> onShowTouchesChanged;
   final ValueChanged<bool> onAutoScanAndConnectChanged;
-  final ValueChanged<bool> onTurnScreenOffChanged;  // 添加新属性
+  final ValueChanged<bool> onTurnScreenOffChanged; // 添加新属性
   final ValueChanged<bool> onEnableH265Changed;
   final ValueChanged<bool> onEnablePhysicalKeyboardChanged;
   final ValueChanged<bool> onDisableAudioChanged;
@@ -40,8 +43,8 @@ class SettingsPage extends StatelessWidget {
     required this.onKeepScreenOnChanged,
     required this.onShowTouchesChanged,
     required this.onAutoScanAndConnectChanged,
-    required this.turnScreenOff,  // 添加新参数
-    required this.onTurnScreenOffChanged,  // 添加新参数
+    required this.turnScreenOff, // 添加新参数
+    required this.onTurnScreenOffChanged, // 添加新参数
     required this.enableH265,
     required this.enablePhysicalKeyboard,
     required this.onEnableH265Changed,
@@ -92,7 +95,9 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text('#${state.seedColor.value.toRadixString(16).toUpperCase()}'),
+                    Text(
+                      '#${state.seedColor.toARGB32().toRadixString(16).toUpperCase()}',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -100,9 +105,18 @@ class SettingsPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 SegmentedButton<ThemeMode>(
                   segments: <ButtonSegment<ThemeMode>>[
-                    ButtonSegment(value: ThemeMode.system, label: const Icon(Icons.brightness_auto)),
-                    ButtonSegment(value: ThemeMode.light, label: const Icon(Icons.wb_sunny)),
-                    ButtonSegment(value: ThemeMode.dark, label: const Icon(Icons.dark_mode)),
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: const Icon(Icons.brightness_auto),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      label: const Icon(Icons.wb_sunny),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      label: const Icon(Icons.dark_mode),
+                    ),
                   ],
                   selected: <ThemeMode>{state.themeMode},
                   onSelectionChanged: (newSelection) {
@@ -117,9 +131,11 @@ class SettingsPage extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: presetColors.map((color) {
-                    final selected = color.value == state.seedColor.value;
+                    final selected =
+                        color.toARGB32() == state.seedColor.toARGB32();
                     return InkWell(
-                      onTap: () => context.read<ThemeCubit>().setSeedColor(color),
+                      onTap: () =>
+                          context.read<ThemeCubit>().setSeedColor(color),
                       borderRadius: BorderRadius.circular(24),
                       child: Container(
                         width: 44,
@@ -146,86 +162,113 @@ class SettingsPage extends StatelessWidget {
                           builder: (context) {
                             String hex = '';
                             Color preview = Colors.transparent;
-                            return StatefulBuilder(builder: (context, setState) {
-                              return AlertDialog(
-                                title: const Text('输入自定义颜色 (Hex)'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    TextField(
-                                      decoration: const InputDecoration(
-                                        prefixText: '#',
-                                        hintText: 'e.g. 0ABAB5 或 FF0ABAB5',
-                                      ),
-                                      onChanged: (v) {
-                                        hex = v.trim();
-                                        final cleaned = v.replaceAll('#', '').replaceAll('0x', '');
-                                        if (RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(cleaned)) {
-                                          preview = Color(int.parse('0xFF' + cleaned));
-                                        } else if (RegExp(r'^[0-9a-fA-F]{8}$').hasMatch(cleaned)) {
-                                          preview = Color(int.parse('0x' + cleaned));
-                                        } else {
-                                          preview = Colors.transparent;
-                                        }
-                                        setState(() {});
-                                      },
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        const Text('预览：'),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          width: 36,
-                                          height: 36,
-                                          decoration: BoxDecoration(
-                                            color: preview,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(color: Colors.grey.shade300),
-                                          ),
+                            return StatefulBuilder(
+                              builder: (context, setState) {
+                                return AlertDialog(
+                                  title: const Text('输入自定义颜色 (Hex)'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextField(
+                                        decoration: const InputDecoration(
+                                          prefixText: '#',
+                                          hintText: 'e.g. 0ABAB5 或 FF0ABAB5',
                                         ),
-                                      ],
+                                        onChanged: (v) {
+                                          hex = v.trim();
+                                          final cleaned = v
+                                              .replaceAll('#', '')
+                                              .replaceAll('0x', '');
+                                          if (RegExp(
+                                            r'^[0-9a-fA-F]{6}$',
+                                          ).hasMatch(cleaned)) {
+                                            preview = Color(
+                                              int.parse('0xFF$cleaned'),
+                                            );
+                                          } else if (RegExp(
+                                            r'^[0-9a-fA-F]{8}$',
+                                          ).hasMatch(cleaned)) {
+                                            preview = Color(
+                                              int.parse('0x$cleaned'),
+                                            );
+                                          } else {
+                                            preview = Colors.transparent;
+                                          }
+                                          setState(() {});
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          const Text('预览：'),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: preview,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.grey.shade300,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                      child: const Text('取消'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop(hex);
+                                      },
+                                      child: const Text('确定'),
                                     ),
                                   ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    child: const Text('取消'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop(hex);
-                                    },
-                                    child: const Text('确定'),
-                                  ),
-                                ],
-                              );
-                            });
+                                );
+                              },
+                            );
                           },
                         );
 
                         if (!context.mounted) return;
                         if (result != null && result.trim().isNotEmpty) {
-                          final cleaned = result.replaceAll('#', '').replaceAll('0x', '');
+                          final cleaned = result
+                              .replaceAll('#', '')
+                              .replaceAll('0x', '');
                           try {
                             Color newColor;
                             if (RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(cleaned)) {
-                              newColor = Color(int.parse('0xFF' + cleaned));
-                            } else if (RegExp(r'^[0-9a-fA-F]{8}$').hasMatch(cleaned)) {
-                              newColor = Color(int.parse('0x' + cleaned));
+                              newColor = Color(int.parse('0xFF$cleaned'));
+                            } else if (RegExp(
+                              r'^[0-9a-fA-F]{8}$',
+                            ).hasMatch(cleaned)) {
+                              newColor = Color(int.parse('0x$cleaned'));
                             } else {
                               throw FormatException('Invalid hex');
                             }
-                            await context.read<ThemeCubit>().setSeedColor(newColor);
+                            await context.read<ThemeCubit>().setSeedColor(
+                              newColor,
+                            );
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('主题颜色已应用: #${cleaned.toUpperCase()}')),
+                                SnackBar(
+                                  content: Text(
+                                    '主题颜色已应用: #${cleaned.toUpperCase()}',
+                                  ),
+                                ),
                               );
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('无效的十六进制颜色')));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('无效的十六进制颜色')),
+                              );
                             }
                           }
                         }
@@ -253,6 +296,8 @@ class SettingsPage extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         _buildDefaultSettings(),
+        const SizedBox(height: 16),
+        const ToolEnvironmentCard(),
         const SizedBox(height: 16),
         _buildPersonalizationSection(context),
         const Divider(),
@@ -288,7 +333,7 @@ class SettingsPage extends StatelessWidget {
               child: TextField(
                 controller: defaultResolutionController,
                 decoration: const InputDecoration(
-                  labelText: '默认分辨率',
+                  labelText: '默认分辨率最大值',
                   hintText: '例如：1080',
                 ),
                 onChanged: (value) {
@@ -302,7 +347,7 @@ class SettingsPage extends StatelessWidget {
         TextField(
           controller: defaultDpiController,
           decoration: const InputDecoration(
-            labelText: '默认DPI',
+            labelText: '默认虚拟显示 DPI（单App投屏）',
             hintText: '例如：420',
           ),
           onChanged: (value) {
@@ -337,9 +382,13 @@ class SettingsPage extends StatelessWidget {
           onChanged: (value) async {
             try {
               final success = await onRunCommand([
-                'adb', 'shell', 'settings', 'put', 'system',
+                'adb',
+                'shell',
+                'settings',
+                'put',
+                'system',
                 'screen_off_timeout',
-                value ? '2147483647' : '60000'
+                value ? '2147483647' : '60000',
               ]);
               if (success) {
                 onKeepScreenOnChanged(value);
@@ -353,7 +402,7 @@ class SettingsPage extends StatelessWidget {
         // 添加自动扫描连接开关
         SwitchListTile(
           title: const Text('启动时自动扫描连接'),
-          subtitle: const Text('应用启动时自动扫描并连接设备'),
+          subtitle: const Text('启动时按已保存的扫描范围和端口扫描并连接设备'),
           value: autoScanAndConnect,
           onChanged: (value) {
             onAutoScanAndConnectChanged(value);
@@ -368,9 +417,13 @@ class SettingsPage extends StatelessWidget {
           onChanged: (value) async {
             try {
               final success = await onRunCommand([
-                'adb', 'shell', 'settings', 'put', 'system',
+                'adb',
+                'shell',
+                'settings',
+                'put',
+                'system',
                 'show_touches',
-                value ? '1' : '0'
+                value ? '1' : '0',
               ]);
               if (success) {
                 onShowTouchesChanged(value);
@@ -397,12 +450,6 @@ class SettingsPage extends StatelessWidget {
           onChanged: (value) {
             onEnablePhysicalKeyboardChanged(value);
             SettingsManager.saveSettings(enablePhysicalKeyboard: value);
-            // 添加 ADB 命令来控制物理键盘透射
-            onRunCommand([
-              'adb', 'shell', 'settings', 'put', 'secure',
-              'enable_physical_keyboard',
-              value ? '1' : '0'
-            ]);
           },
         ),
         SwitchListTile(
@@ -426,7 +473,7 @@ class SettingsPage extends StatelessWidget {
         // ADB进程清理设置
         SwitchListTile(
           title: const Text('自动清理ADB进程'),
-          subtitle: const Text('每次启动时自动清理残留的ADB进程'),
+          subtitle: const Text('启动时及开启时清理本应用持有的 ADB 客户端进程'),
           value: autoCleanAdbProcess,
           onChanged: (value) {
             onAutoCleanAdbProcessChanged(value);
@@ -436,7 +483,7 @@ class SettingsPage extends StatelessWidget {
         // 手动清理ADB进程按钮
         ListTile(
           title: const Text('立即清理ADB进程'),
-          subtitle: const Text('强制清理所有残留的ADB进程'),
+          subtitle: const Text('仅停止本应用持有的客户端，保留共享 ADB 服务'),
           trailing: ElevatedButton.icon(
             onPressed: onManualCleanAdbProcess,
             icon: const Icon(Icons.cleaning_services),
@@ -459,7 +506,10 @@ class SettingsPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('妙联 | 连接世界', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  '妙联 | 连接世界',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   '“我们在乘着这温暖的上升气流离开这里。这是我们动身的时刻。我们是飞天蜘蛛，我们正在到世界上去结我们的网。”——《夏洛的网》',
@@ -469,14 +519,15 @@ class SettingsPage extends StatelessWidget {
                 Row(
                   children: [
                     Text('版本：', style: TextStyle(color: Colors.grey[600])),
-                    const Text('1.0.5'),
+                    const Text('${AppConfig.appVersion}+${AppConfig.appBuild}'),
                   ],
                 ),
+                const UpdateCheckTile(),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Text('开源协议：', style: TextStyle(color: Colors.grey[600])),
-                    const Text('Apache License 2.0'),
+                    const Text(AppConfig.appLicense),
                   ],
                 ),
               ],

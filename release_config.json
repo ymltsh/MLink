@@ -1,0 +1,8 @@
+{
+  "repo": "ymltsh/MLink",
+  "branch": "main",
+  "name": "妙联",
+  "asset_prefix": "mlink",
+  "windows_exe": "code.exe",
+  "installer": "installer/windows/MLink.iss"
+}

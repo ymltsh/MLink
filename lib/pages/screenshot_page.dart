@@ -11,7 +11,7 @@ class _CaptureIntent extends Intent {
 
 class ScreenshotPage extends StatelessWidget {
   final String serial;
-  const ScreenshotPage({Key? key, required this.serial}) : super(key: key);
+  const ScreenshotPage({super.key, required this.serial});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class ScreenshotPage extends StatelessWidget {
 
 class _ScreenshotView extends StatefulWidget {
   final String serial;
-  const _ScreenshotView({Key? key, required this.serial}) : super(key: key);
+  const _ScreenshotView({required this.serial});
 
   @override
   State<_ScreenshotView> createState() => _ScreenshotViewState();
@@ -32,12 +32,19 @@ class _ScreenshotView extends StatefulWidget {
 
 class _ScreenshotViewState extends State<_ScreenshotView> {
   late ScreenshotCubit cubit;
+  final _intervalController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     cubit = context.read<ScreenshotCubit>();
-    cubit.refreshHistory();
+    _intervalController.text = cubit.state.continuousCaptureInterval.toString();
+  }
+
+  @override
+  void dispose() {
+    _intervalController.dispose();
+    super.dispose();
   }
 
   @override
@@ -50,12 +57,26 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
       },
       child: Actions(
         actions: {
-          _CaptureIntent: CallbackAction<_CaptureIntent>(onInvoke: (intent) {
-            cubit.capture(widget.serial);
-            return null;
-          }),
+          _CaptureIntent: CallbackAction<_CaptureIntent>(
+            onInvoke: (intent) {
+              cubit.capture(widget.serial);
+              return null;
+            },
+          ),
         },
-        child: BlocBuilder<ScreenshotCubit, ScreenshotState>(
+        child: BlocConsumer<ScreenshotCubit, ScreenshotState>(
+          listenWhen: (previous, current) =>
+              previous.continuousCaptureInterval !=
+              current.continuousCaptureInterval,
+          listener: (_, state) {
+            final value = state.continuousCaptureInterval.toString();
+            if (_intervalController.text != value) {
+              _intervalController.value = TextEditingValue(
+                text: value,
+                selection: TextSelection.collapsed(offset: value.length),
+              );
+            }
+          },
           builder: (context, state) {
             final latest = state.latestScreenshot;
             return Padding(
@@ -90,7 +111,9 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                                   Positioned.fill(
                                     child: Container(
                                       color: Colors.black26,
-                                      child: const Center(child: CircularProgressIndicator()),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
                                     ),
                                   ),
                               ],
@@ -98,6 +121,13 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                           ),
                         ),
                         const SizedBox(height: 8),
+                        if (state.errorMessage != null)
+                          Text(
+                            state.errorMessage!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
                         // 连续截屏控制区域
                         Column(
                           children: [
@@ -105,24 +135,45 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 ElevatedButton.icon(
-                                  icon: state.isCapturing ? const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)) : const Icon(Icons.camera_alt),
+                                  icon: state.isCapturing
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.camera_alt),
                                   label: const Text('立即截屏'),
-                                  onPressed: state.isCapturing ? null : () => cubit.capture(widget.serial),
+                                  onPressed: state.isCapturing
+                                      ? null
+                                      : () => cubit.capture(widget.serial),
                                 ),
                                 const SizedBox(width: 12),
                                 ElevatedButton.icon(
-                                  icon: state.isContinuousCapturing 
-                                      ? const Icon(Icons.stop, color: Colors.red)
+                                  icon: state.isContinuousCapturing
+                                      ? const Icon(
+                                          Icons.stop,
+                                          color: Colors.red,
+                                        )
                                       : const Icon(Icons.timer),
-                                  label: Text(state.isContinuousCapturing ? '停止连续截屏' : '开始连续截屏'),
+                                  label: Text(
+                                    state.isContinuousCapturing
+                                        ? '停止连续截屏'
+                                        : '开始连续截屏',
+                                  ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: state.isContinuousCapturing ? Colors.red.shade100 : null,
+                                    backgroundColor: state.isContinuousCapturing
+                                        ? Colors.red.shade100
+                                        : null,
                                   ),
                                   onPressed: () {
                                     if (state.isContinuousCapturing) {
                                       cubit.stopContinuousCapture();
                                     } else {
-                                      cubit.startContinuousCapture(widget.serial);
+                                      cubit.startContinuousCapture(
+                                        widget.serial,
+                                      );
                                     }
                                   },
                                 ),
@@ -153,21 +204,27 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                               children: [
                                 const Text('间隔时间(秒):'),
                                 const SizedBox(width: 8),
-                                Container(
+                                SizedBox(
                                   width: 80,
                                   child: TextField(
                                     decoration: const InputDecoration(
                                       isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                     ),
                                     keyboardType: TextInputType.number,
-                                    controller: TextEditingController(
-                                      text: state.continuousCaptureInterval.toString(),
-                                    )..selection = TextSelection.collapsed(offset: state.continuousCaptureInterval.toString().length),
+                                    controller: _intervalController,
                                     onChanged: (value) {
                                       final interval = int.tryParse(value);
-                                      if (interval != null && interval >= 1 && interval <= 60) {
-                                        cubit.setContinuousCaptureInterval(interval, serial: widget.serial);
+                                      if (interval != null &&
+                                          interval >= 1 &&
+                                          interval <= 60) {
+                                        cubit.setContinuousCaptureInterval(
+                                          interval,
+                                          serial: widget.serial,
+                                        );
                                       }
                                     },
                                   ),
@@ -176,18 +233,26 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                                 IconButton(
                                   icon: const Icon(Icons.remove),
                                   onPressed: () {
-                                    final newInterval = state.continuousCaptureInterval - 1;
+                                    final newInterval =
+                                        state.continuousCaptureInterval - 1;
                                     if (newInterval >= 1) {
-                                      cubit.setContinuousCaptureInterval(newInterval, serial: widget.serial);
+                                      cubit.setContinuousCaptureInterval(
+                                        newInterval,
+                                        serial: widget.serial,
+                                      );
                                     }
                                   },
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.add),
                                   onPressed: () {
-                                    final newInterval = state.continuousCaptureInterval + 1;
+                                    final newInterval =
+                                        state.continuousCaptureInterval + 1;
                                     if (newInterval <= 60) {
-                                      cubit.setContinuousCaptureInterval(newInterval, serial: widget.serial);
+                                      cubit.setContinuousCaptureInterval(
+                                        newInterval,
+                                        serial: widget.serial,
+                                      );
                                     }
                                   },
                                 ),
@@ -204,13 +269,20 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text('历史截图', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text(
+                          '历史截图',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(height: 8),
                         Expanded(
                           child: state.history.isEmpty
                               ? const Center(child: Text('无历史记录'))
                               : GridView.builder(
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        childAspectRatio: 1,
+                                      ),
                                   itemCount: state.history.length,
                                   itemBuilder: (context, index) {
                                     final file = state.history[index];
@@ -222,7 +294,10 @@ class _ScreenshotViewState extends State<_ScreenshotView> {
                                       child: Card(
                                         child: Padding(
                                           padding: const EdgeInsets.all(4.0),
-                                          child: Image.file(file, fit: BoxFit.cover),
+                                          child: Image.file(
+                                            file,
+                                            fit: BoxFit.cover,
+                                          ),
                                         ),
                                       ),
                                     );

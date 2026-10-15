@@ -1,346 +1,101 @@
-# 🔧 妙联 - 超轻量化跨平台屏幕互联工具
+# 妙联（MLink）
 
-> **基于adb协议，让手机与电脑真正无差别互联。轻量、流畅、跨品牌。**
+基于 Flutter、ADB 和 scrcpy 的 Android 设备连接与屏幕互联工具。主要发布目标为 **Windows x64**；Dart 包名为 `adb_tool`，Windows 可执行文件为 **`code.exe`**。
 
-## 🚀 项目简介
+项目目标是让所有用户都能轻松地在电脑上操控手机，实现轻量化屏幕互联。
 
-**妙联**是一款基于 Flutter 打造的**超轻量级、跨平台屏幕互联工具**，专为解决各家手机厂商在电脑端互联体验割裂的问题而设计。
-它通过 ADB 作为底层通道，无需用户学习任何命令，即可实现**稳定、清晰、低延迟的手机屏幕投射与操控**。
+## 平台与功能范围
 
-相比臃肿复杂的厂商互联套件，妙联专注于提供：
+| 平台 | 当前状态 |
+| --- | --- |
+| Windows x64 | 主要目标，提供安装程序与完整便携 ZIP，首次启动补全私有 ADB / scrcpy 运行环境 |
+| macOS / Linux | 实验性桌面工程，检测系统 ADB / scrcpy；尚未完成真机和发行验收，无正式安装包流程 |
+| Android | 可选调试签名 APK，仍使用 `com.example.code`；不是正式手机发行方案 |
 
-* 🎯 **一致的跨品牌体验**：无论是小米、华为、OPPO、vivo 还是三星，都能获得统一顺滑的镜像体验
-* ⚡ **极简操作流程**：插上手机即可镜像，无需账号、无需生态绑定、无需繁琐配置
-* 🪶 **轻量快速**：资源占用低、启动快、界面简洁优雅
-* 🔄 **跨平台支持**：兼容 Windows / macOS / Linux，多端统一体验
+现有界面提供以下功能，具体支持情况取决于设备 Android 版本、授权和 scrcpy 能力：
 
-妙联的目标不是成为一款 ADB 工具箱，而是**让所有用户都能轻松地在电脑上操控手机，实现真正意义上的轻量化屏幕互联**。
+- USB / 无线连接、显式 IPv4 范围端口扫描、无线调试配对和设备信息读取。扫描发现开放端口，连接成功后才能确认是 ADB 设备；配对端口和连接端口分别填写。
+- 屏幕镜像、音频或摄像头投送、画质配置、录制及单应用虚拟显示。当前管理一个投屏会话，可停止后再启动；普通投屏使用默认码率和尺寸，临时参数可覆盖，DPI 用于虚拟显示。
+- APK 安装、包名查询、应用启动/停止/卸载和进程监控。读取失败展示错误，不以演示数据替代真实设备。
+- 文件浏览、搜索、创建/重命名/删除和上传下载；元数据保留真实类型、时间和符号链接信息。Root 模式传输尚不支持，会明确拒绝。
+- 截图、截图历史和定时截图。
+- 主题、运行环境管理及用户主动触发的应用版本检查。
 
-## ✨ 功能特性
+涉及设备的操作使用选中设备的明确标识。切换设备后，尚未完成的旧信息和查询结果不会覆盖新设备；文件、截图和监控页面随设备切换重建。
 
-### 🔌 设备连接管理
-- **有线/无线连接**：支持USB和Wi-Fi两种连接方式
-- **自动扫描**：自动发现局域网内的Android设备
-- **历史记录**：保存常用设备连接信息，快速重连
-- **设备信息**：显示设备型号、Android版本等详细信息
+## 首次使用
 
-### 📱 屏幕镜像与投屏
-- **实时投屏**：使用scrcpy实现高质量屏幕镜像
-- **画质调节**：支持码率、分辨率等参数自定义
-- **单应用投屏**：仅投屏指定应用，多开挂机
-- **录制功能**：支持屏幕录制和音频投送
-- **键盘HID**：支持通过ADB发送键盘事件，将电脑键盘作为手机的实体键盘
+1. 在 Android 设备上开启开发者选项及 USB 调试，连接后接受设备上的授权提示。
+2. 在 Windows x64 启动妙联，等待运行环境下载、校验、解压和可执行文件检查完成。
+3. 在“设备连接”刷新并选择设备，再进入投屏或其他页面。
 
-### 📦 应用管理
-- **应用列表**：查看设备上安装的所有应用
-- **应用操作**：安装、卸载、启动、停止应用
-- **包名查询**：快速搜索和定位特定应用
-- **权限管理**：查看和管理应用权限
+首次安装从 scrcpy 官方 latest 正式版读取元数据和 SHA256，**元数据与摘要从官方通道直连**；默认仅运行包 ZIP 通过 `https://hub.wgen.top/` 加速。官方通道无法获取校验依据时不会执行未校验内容。所有下载均会校验摘要，归档路径检查通过后才解压。
 
-### 📁 文件管理器
-- **文件浏览**：浏览设备文件系统
-- **文件传输**：支持文件上传和下载
-- **批量操作**：支持多文件选择和操作
-- **权限管理**：处理文件权限问题
+工具位于当前用户应用数据目录的 `MLink/tools`，后续启动验证并复用本地缓存，不在每次启动追踪 latest。“设置 → ADB / scrcpy 运行环境”可查看路径、重试安装、手动更新或配置加速源，留空可直连。相同 tag 和摘要不重复下载；更新失败保留旧环境，正在使用的目录不会被清理。
 
-### ⚙️ 设备操作
-- **截图功能**：快速截取设备屏幕
-- **系统设置**：调整设备显示、输入等设置
-- **ADB命令**：支持自定义ADB命令执行
-- **日志查看**：实时查看设备日志信息
+Windows 使用私有工具绝对路径及子进程环境，不修改系统 PATH。macOS / Linux 需自行将 ADB、scrcpy 配置到系统环境中，暂未提供可编辑的工具路径选项。应用中的进程清理仅针对本应用启动并持有的 ADB 客户端，不结束系统全部 ADB、scrcpy 或同名 `code.exe`。
 
-## 🛠️ 技术栈
+## 开发环境
 
-### 前端技术
-| 技术 | 版本 | 说明 |
-|------|------|------|
-| **Flutter** | 3.13+ | 跨平台UI框架 |
-| **Dart** | 2.17+ | 编程语言 |
-| **Material Design** | 最新 | UI设计规范 |
+- Flutter **>=3.32.0**、Dart **>=3.8.0 <4.0.0**；CI 固定 Flutter **3.32.8**，以 `pubspec.yaml` 和 `pubspec.lock` 为准。
+- Windows 桌面构建需要 Visual Studio 的 C++ 桌面工具链及 Windows SDK。
+- 发布脚本需要 Python 3.9+（CI 使用 3.11）；Windows 安装程序需要 Inno Setup 6；上传远端还需 GitHub CLI 与仓库权限。
 
-### 状态管理
-| 技术 | 版本 | 说明 |
-|------|------|------|
-| **flutter_bloc** | ^8.1.3 | BLoC状态管理 |
-| **bloc** | ^8.1.4 | BLoC核心库 |
-| **equatable** | ^2.0.5 | 值比较工具 |
-
-### 核心依赖
-| 依赖 | 版本 | 功能 |
-|------|------|------|
-| **process_run** | ^0.13.2 | 进程执行管理 |
-| **shared_preferences** | ^2.2.2 | 本地数据存储 |
-| **file_picker** | ^6.1.1 | 文件选择器 |
-| **path_provider** | ^2.1.5 | 路径管理 |
-
-### 架构特色
-- **MVVM架构**：采用BLoC模式实现清晰的业务逻辑分离
-- **响应式设计**：支持主题切换和暗色模式
-- **模块化设计**：功能模块独立，便于维护和扩展
-- **跨平台兼容**：一套代码多端运行
-
-## 📁 项目目录结构
-
-```
-lib/
-├── main.dart                    # 应用入口文件
-├── app/                        # 应用核心模块
-│   ├── modules/               # 功能模块
-│   │   ├── settings/         # 设置模块
-│   │   │   └── bloc/        # 设置状态管理
-│   │   └── screenshot/       # 截图模块
-│   └── theme/                # 主题配置
-├── blocs/                    # 业务逻辑层
-├── controllers/              # 控制器层
-├── enums/                   # 枚举定义
-│   ├── page_category.dart   # 页面分类枚举
-│   └── page_category2.dart  # 扩展页面分类
-├── models/                  # 数据模型
-├── pages/                   # 页面组件
-│   ├── device_connection_page.dart    # 设备连接页面
-│   ├── screen_mirroring_page.dart     # 屏幕镜像页面
-│   ├── app_management_page.dart       # 应用管理页面
-│   ├── file_manager_page.dart         # 文件管理页面
-│   ├── screenshot_page.dart           # 截图页面
-│   ├── device_operations_page.dart    # 设备操作页面
-│   └── settings_page.dart             # 设置页面
-├── utils/                   # 工具类
-│   ├── app_output.dart     # 应用输出工具
-│   └── settings_manager.dart # 设置管理工具
-└── widgets/                # 自定义组件
-    ├── package_query_widget.dart # 包查询组件
-    └── search_bar.dart          # 搜索栏组件
-```
-
-### 主要模块职责说明
-
-- **main.dart**：应用入口，初始化主题和路由
-- **pages/**：各功能页面，负责UI展示和用户交互
-- **blocs/**：业务逻辑处理，状态管理
-- **utils/**：工具函数和辅助类
-- **widgets/**：可复用UI组件
-- **app/modules/**：功能模块，按业务划分
-
-## 🚀 安装与部署
-
-### 环境要求
-
-- **Flutter SDK**: 3.13.0 或更高版本
-- **Dart**: 2.17.0 或更高版本
-- **ADB工具**: 需要安装Android SDK Platform-Tools
-- **操作系统**: Windows 10/11, macOS 10.15+, Linux Ubuntu 18.04+
-
-### 本地运行步骤
-
-1. **克隆项目**
-```bash
-git clone <repository-url>
-cd code
-```
-
-2. **安装依赖**
-```bash
+```powershell
 flutter pub get
+flutter run -d windows
 ```
 
-3. **检查环境**
-```bash
-flutter doctor
+本地构建后的入口为 `build/windows/x64/runner/Release/code.exe`。分发时保留整个 Release 目录及其 DLL、data 等依赖；仅复制 EXE 无法组成完整应用。
+
+## 验证
+
+```powershell
+flutter analyze
+flutter test
+python -m unittest discover -s tests
+python release.py --version 1.0.1 --build 2 --dry-run
 ```
 
-4. **运行应用**
-```bash
-# 开发模式运行
-flutter run
+只对本次修改的 Dart 文件执行 `dart format`。普通测试使用可注入的命令和进程，不依赖 Android 真机。覆盖范围及待执行的真机检查见 [测试与验收](docs/TESTING.md)，测试通过不能代替真机验收。
 
-# 构建发布版本
-flutter build windows  # Windows
-flutter build macos    # macOS  
-flutter build linux    # Linux
-flutter build apk      # Android
+可选真实下载检查（联网并运行已校验工具的版本查询，不连接设备）：
+
+```powershell
+$env:MLINK_TOOLS_SMOKE = '1'
+flutter test test/tool_environment_smoke_test.dart
+Remove-Item Env:MLINK_TOOLS_SMOKE
 ```
 
-### 生产部署
+现有 `file_picker` 依赖会输出桌面插件声明提示；静态分析结果和测试失败应分别如实记录，不通过跳过规则掩盖。
 
-#### Windows部署
-```bash
-flutter build windows
-# 生成的exe文件位于 build/windows/runner/Release/
+## 结构与协作
+
+```text
+lib/
+  main.dart                       应用入口、导航和页面组装
+  pages/                          现有界面
+  app/modules/
+    device_connection/            设备状态、信息读取、扫描和配对
+    tools/                        私有运行环境、命令、设备/投屏会话
+    screen_mirroring/             投屏配置
+    file_manager/                 文件业务状态和服务
+    screenshot/                   截图业务状态和服务
+    settings/                     主题和更新服务
+  datasources/                    设备进程数据源
+  models/                         业务数据模型
+  core/config/app_config.dart     应用版本、构建号与更新入口
+  utils/                          设置持久化和有界日志
 ```
 
-#### macOS部署
-```bash
-flutter build macos
-# 生成的app文件位于 build/macos/Build/Products/Release/
-```
+[架构边界](docs/ARCHITECTURE.md)说明命令入口和异步任务归属。贡献代码遵循 [AGENTS.md](AGENTS.md)，保留已有未提交修改，默认新分支使用 `codex/` 前缀，提交采用 Conventional Commits。审计原始发现与本轮处理记录见 [PROJECT_AUDIT.md](PROJECT_AUDIT.md)。
 
-#### Linux部署
-```bash
-flutter build linux
-# 生成的可执行文件位于 build/linux/x64/release/bundle/
-```
+## 更新与发布
 
-## 💡 使用示例
+应用仅在用户点击“设置 → 关于 → 检查更新”时检查自身版本。先数值比较 `x.y.z`，再比较 build；Beta/Beta2 为预发布，不覆盖稳定更新入口。
 
-### 快速开始
+完整流程见 [update.md](update.md)，配置在 `release_config.json`，工具为 `release.py`。通常先以 `--local-only` 准备并验证产物，提交推送对应源码后，使用同版本和显式构建号 `--skip-build` 上传；产物复用会验证源码指纹和检查记录。Release 先创建草稿，所有资产上传成功后才公开，最后更新稳定 `version.json`。预览不会构建、上传或创建远端 Release。
 
-1. **连接设备**
-   - 通过USB连接Android设备
-   - 启用设备的USB调试模式
-   - 在应用中选择设备并连接
+## 许可证
 
-2. **屏幕镜像**
-   - 进入"屏幕镜像"页面
-   - 点击"开始投屏"按钮
-   - 调整画质参数（可选）
-
-3. **应用管理**
-   - 进入"应用管理"页面
-   - 查看已安装应用列表
-   - 执行安装、卸载等操作
-
-### 代码示例
-
-#### 设备连接示例
-```dart
-// 连接ADB设备
-Future<void> connectDevice(String ip, String port) async {
-  final result = await runCommand(['adb', 'connect', '$ip:$port']);
-  if (result.exitCode == 0) {
-    print('设备连接成功');
-  }
-}
-```
-
-#### 屏幕镜像示例
-```dart
-// 启动屏幕镜像
-void startScreenMirroring({
-  int? bitrate,
-  String? maxSize,
-  bool turnScreenOff = false,
-}) {
-  final args = ['scrcpy'];
-  
-  if (bitrate != null) args.addAll(['-b', '${bitrate}m']);
-  if (maxSize != null) args.addAll(['-m', maxSize]);
-  if (turnScreenOff) args.add('--turn-screen-off');
-  
-  runCommand(args);
-}
-```
-
-## ⚙️ 配置说明
-
-### 应用设置
-应用支持丰富的配置选项，可通过设置页面进行调整：
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| 默认码率 | 8M | 屏幕镜像的默认码率 |
-| 默认分辨率 | 1080 | 屏幕镜像的最大分辨率 |
-| 默认DPI | 420 | 显示密度设置 |
-| 保持屏幕常亮 | false | 投屏时保持设备屏幕开启 |
-| 显示触摸操作 | false | 在投屏中显示触摸点 |
-| 关闭设备屏幕 | false | 投屏时关闭设备屏幕 |
-
-### ADB路径配置
-如果系统ADB路径不在环境变量中，需要在设置中指定ADB工具路径：
-
-```dart
-// 在设置中配置ADB路径
-adbPath: '/path/to/adb'
-```
-
-## 🌟 项目亮点与价值
-
-### 🔥 技术亮点
-1. **现代化技术栈**：采用最新的Flutter框架，确保应用性能和用户体验
-2. **跨平台兼容**：一套代码支持多个平台，降低开发和维护成本
-3. **模块化架构**：清晰的代码结构，便于功能扩展和维护
-4. **响应式设计**：支持多种屏幕尺寸和主题切换
-
-### 💼 商业价值
-1. **提高开发效率**：将复杂的命令行操作图形化，节省开发时间
-2. **降低学习成本**：无需记忆复杂的ADB命令，降低使用门槛
-3. **团队协作友好**：统一的工具界面，便于团队内部使用和培训
-4. **持续维护**：基于活跃的Flutter生态，确保长期可用性
-
-### 🎯 用户价值
-- **开发者**：快速调试和测试Android应用
-- **测试人员**：方便进行设备兼容性测试
-- **技术支持**：远程协助和问题排查
-- **普通用户**：管理手机应用和文件
-
-## 🤝 贡献指南
-
-我们欢迎所有形式的贡献！请阅读以下指南：
-
-### 开发流程
-1. Fork本仓库
-2. 创建功能分支：`git checkout -b feature/AmazingFeature`
-3. 提交更改：`git commit -m 'Add some AmazingFeature'`
-4. 推送到分支：`git push origin feature/AmazingFeature`
-5. 提交Pull Request
-
-### 代码规范
-- 遵循Dart官方代码风格指南
-- 使用有意义的变量和函数命名
-- 添加必要的注释和文档
-- 确保代码通过静态分析
-
-### Commit规范
-使用[Conventional Commits](https://www.conventionalcommits.org/)规范：
-
-```bash
-feat: 添加新功能
-fix: 修复bug
-docs: 文档更新
-style: 代码格式调整
-refactor: 代码重构
-test: 测试相关
-chore: 构建过程或辅助工具变动
-```
-
-## 📄 许可证
-
-本项目采用 **MIT许可证** - 详见 [LICENSE](LICENSE) 文件。
-
-## ❓ 常见问题 (FAQ)
-
-### Q: 无法检测到设备怎么办？
-A: 
-1. 确保设备已启用USB调试模式
-2. 检查USB连接是否正常
-3. 确认ADB驱动已正确安装
-4. 尝试重新插拔USB线
-
-### Q: 无线连接失败怎么办？
-A:
-1. 确保设备和电脑在同一网络
-2. 检查防火墙设置
-3. 确认设备已通过USB授权
-4. 尝试使用设备的IP地址而非主机名
-
-### Q: 屏幕镜像卡顿怎么办？
-A:
-1. 降低码率设置（如从8M降到4M）
-2. 减小最大分辨率
-3. 关闭不必要的后台应用
-4. 检查网络连接质量（无线连接时）
-
-### Q: 如何更新ADB工具？
-A:
-1. 下载最新版Android SDK Platform-Tools
-2. 替换系统PATH中的ADB工具
-3. 或在应用设置中指定新的ADB路径
-
----
-
-<div align="center">
-
-**如果这个项目对您有帮助，请给个⭐Star支持一下！**
-
-*让所有用户都能轻松地在电脑上操控手机，实现真正意义上的轻量化屏幕互联* 🚀
-
-</div>
+项目采用 [MIT License](LICENSE)，应用“关于”页与此一致。ADB、scrcpy、Flutter 及其他第三方组件遵循各自许可证；本项目许可证不替代它们的授权与声明。

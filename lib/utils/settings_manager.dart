@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsManager {
+  static const String keyScanRange = 'scanRange';
+  static const String keyScanPort = 'scanPort';
   static const String keyAutoScanAndConnect = 'autoScanAndConnect';
   static const String keyKeepScreenOn = 'keepScreenOn';
   static const String keyShowTouches = 'showTouches';
@@ -15,11 +17,13 @@ class SettingsManager {
   static const String keyDisableAudio = 'disableAudio';
   static const String keyEnableRecording = 'enableRecording';
   static const String keyHistoryDevices = 'historyDevices';
-  
+
   // ADB进程清理设置
   static const String keyAutoCleanAdbProcess = 'autoCleanAdbProcess';
 
   static Future<void> saveSettings({
+    String? scanRange,
+    String? scanPort,
     bool? autoScanAndConnect,
     bool? keepScreenOn,
     bool? showTouches,
@@ -34,7 +38,9 @@ class SettingsManager {
     bool? autoCleanAdbProcess,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
+    if (scanRange != null) await prefs.setString(keyScanRange, scanRange);
+    if (scanPort != null) await prefs.setString(keyScanPort, scanPort);
     if (autoScanAndConnect != null) {
       await prefs.setBool(keyAutoScanAndConnect, autoScanAndConnect);
     }
@@ -87,17 +93,20 @@ class SettingsManager {
 
   static Future<Map<String, dynamic>> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     return {
+      keyScanRange: prefs.getString(keyScanRange) ?? '',
+      keyScanPort: prefs.getString(keyScanPort) ?? '5555',
       keyAutoScanAndConnect: prefs.getBool(keyAutoScanAndConnect) ?? false,
       keyKeepScreenOn: prefs.getBool(keyKeepScreenOn) ?? false,
       keyShowTouches: prefs.getBool(keyShowTouches) ?? false,
       keyDefaultBitrate: prefs.getString(keyDefaultBitrate) ?? '8',
       keyDefaultResolution: prefs.getString(keyDefaultResolution) ?? '1080',
       keyDefaultDpi: prefs.getString(keyDefaultDpi) ?? '420',
-      keyTurnScreenOff: prefs.getBool(keyTurnScreenOff) ?? false,  // 使用公开字段
+      keyTurnScreenOff: prefs.getBool(keyTurnScreenOff) ?? false, // 使用公开字段
       keyEnableH265: prefs.getBool(keyEnableH265) ?? false,
-      keyEnablePhysicalKeyboard: prefs.getBool(keyEnablePhysicalKeyboard) ?? false,
+      keyEnablePhysicalKeyboard:
+          prefs.getBool(keyEnablePhysicalKeyboard) ?? false,
       keyDisableAudio: prefs.getBool(keyDisableAudio) ?? false,
       keyEnableRecording: prefs.getBool(keyEnableRecording) ?? false,
       keyAutoCleanAdbProcess: prefs.getBool(keyAutoCleanAdbProcess) ?? false,

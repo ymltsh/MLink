@@ -4,6 +4,7 @@ import '../models/file_entry.dart';
 enum FileManagerStatus { initial, loading, success, failure }
 
 class FileManagerState extends Equatable {
+  static const _unchanged = Object();
   final String currentPath;
   final List<FileEntry> files;
   final FileManagerStatus status;
@@ -33,8 +34,8 @@ class FileManagerState extends Equatable {
         isRootMode: false,
         uploadProgress: 0.0,
         downloadProgress: 0.0,
-      progress: null,
-      selectedFiles: const <FileEntry>{},
+        progress: null,
+        selectedFiles: <FileEntry>{},
       );
 
   FileManagerState copyWith({
@@ -44,8 +45,8 @@ class FileManagerState extends Equatable {
     bool? isRootMode,
     double? uploadProgress,
     double? downloadProgress,
-    double? progress,
-    String? errorMessage,
+    Object? progress = _unchanged,
+    Object? errorMessage = _unchanged,
     Set<FileEntry>? selectedFiles,
   }) {
     return FileManagerState(
@@ -55,8 +56,11 @@ class FileManagerState extends Equatable {
       isRootMode: isRootMode ?? this.isRootMode,
       uploadProgress: uploadProgress ?? this.uploadProgress,
       downloadProgress: downloadProgress ?? this.downloadProgress,
-      progress: progress ?? this.progress,
-      errorMessage: errorMessage ?? this.errorMessage,
+      progress:
+          identical(progress, _unchanged) ? this.progress : progress as double?,
+      errorMessage: identical(errorMessage, _unchanged)
+          ? this.errorMessage
+          : errorMessage as String?,
       selectedFiles: selectedFiles ?? this.selectedFiles,
     );
   }
@@ -68,7 +72,7 @@ class FileManagerState extends Equatable {
         files,
         status,
         isRootMode,
-      progress,
+        progress,
         uploadProgress,
         downloadProgress,
         errorMessage,

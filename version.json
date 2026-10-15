@@ -1,0 +1,11 @@
+{
+  "latest": {
+    "version": "1.0.0",
+    "build": 1,
+    "name": "妙联 v1.0.0",
+    "notes": "更新发布体系初始化；实际下载产物将在首次正式发布后提供。",
+    "urls": {},
+    "page": "https://github.com/ymltsh/MLink/releases/latest"
+  },
+  "history": []
+}

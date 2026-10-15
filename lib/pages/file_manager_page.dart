@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
@@ -13,19 +11,20 @@ import '../app/modules/file_manager/models/file_entry.dart';
 class FileManagerPage extends StatelessWidget {
   final String serial;
 
-  const FileManagerPage({Key? key, required this.serial}) : super(key: key);
+  const FileManagerPage({super.key, required this.serial});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => FileManagerCubit(deviceSerial: serial)..loadPath('/sdcard'),
+      create: (_) =>
+          FileManagerCubit(deviceSerial: serial)..loadPath('/sdcard'),
       child: const _FileManagerView(),
     );
   }
 }
 
 class _FileManagerView extends StatefulWidget {
-  const _FileManagerView({Key? key}) : super(key: key);
+  const _FileManagerView();
 
   @override
   State<_FileManagerView> createState() => _FileManagerViewState();
@@ -52,7 +51,8 @@ class _FileManagerViewState extends State<_FileManagerView> {
           _pathController.text = state.currentPath;
         }
       },
-      child: BlocBuilder<FileManagerCubit, FileManagerState>(builder: (context, state) {
+      child: BlocBuilder<FileManagerCubit, FileManagerState>(
+          builder: (context, state) {
         final cubit = context.read<FileManagerCubit>();
         final selected = state.selectedFiles;
         return Column(
@@ -66,12 +66,15 @@ class _FileManagerViewState extends State<_FileManagerView> {
                   Expanded(
                     child: TextField(
                       controller: _pathController,
-                      decoration: const InputDecoration(isDense: true, hintText: '路径'),
+                      decoration:
+                          const InputDecoration(isDense: true, hintText: '路径'),
                       onTap: () => _isEditingPath = true,
                       onChanged: (_) => _isEditingPath = true,
                       onSubmitted: (v) async {
                         _isEditingPath = false;
-                        if (v.trim().isNotEmpty) await cubit.jumpToPath(v.trim());
+                        if (v.trim().isNotEmpty) {
+                          await cubit.jumpToPath(v.trim());
+                        }
                       },
                       onEditingComplete: () => _isEditingPath = false,
                     ),
@@ -85,7 +88,9 @@ class _FileManagerViewState extends State<_FileManagerView> {
                   Row(
                     children: [
                       const Text('Root'),
-                      Switch(value: state.isRootMode, onChanged: (_) => cubit.toggleRootMode()),
+                      Switch(
+                          value: state.isRootMode,
+                          onChanged: (_) => cubit.toggleRootMode()),
                     ],
                   ),
                 ],
@@ -100,125 +105,150 @@ class _FileManagerViewState extends State<_FileManagerView> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.arrow_upward),
-                    label: const Text('返回上一层'),
-                    onPressed: () async {
-                      await cubit.mapsUp();
-                    },
-                  ),
-                  const SizedBox(width: 8),
-
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.home),
-                    label: const Text('返回/sdcard'),
-                    onPressed: () async {
-                      await cubit.loadPath('/sdcard');
-                    },
-                  ),
-                  const SizedBox(width: 8),
-
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.upload_file),
-                    label: const Text('上传'),
-                    onPressed: () async {
-                      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
-                      if (result != null) {
-                        final paths = result.paths.whereType<String>().toList();
-                        if (paths.isNotEmpty) await cubit.uploadFiles(paths);
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 8),
-
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.download),
-                    label: const Text('下载'),
-                    onPressed: selected.isNotEmpty
-                        ? () async {
-                            final dir = await FilePicker.platform.getDirectoryPath();
-                            if (dir != null) await cubit.downloadSelected(dir);
-                          }
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.delete),
-                    label: const Text('删除'),
-                    onPressed: selected.isNotEmpty
-                        ? () async {
-                            final ok = await showDialog<bool>(
-                              context: context,
-                              builder: (dctx) => AlertDialog(
-                                title: const Text('确认删除'),
-                                content: Text('确定删除选中的 ${selected.length} 个条目吗？'),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(dctx, false), child: const Text('取消')),
-                                  TextButton(onPressed: () => Navigator.pop(dctx, true), child: const Text('删除')),
-                                ],
-                              ),
-                            );
-                            if (ok == true) await cubit.deleteSelected();
-                          }
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.drive_file_rename_outline),
-                    label: const Text('重命名'),
-                    onPressed: selected.length == 1
-                        ? () async {
-                            final entry = selected.first;
-                            _renameController.text = entry.name;
-                            final newName = await showDialog<String?>(
-                              context: context,
-                              builder: (dctx) => AlertDialog(
-                                title: const Text('重命名'),
-                                content: TextField(controller: _renameController),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(dctx, null), child: const Text('取消')),
-                                  TextButton(onPressed: () => Navigator.pop(dctx, _renameController.text.trim()), child: const Text('确定')),
-                                ],
-                              ),
-                            );
-                            if (newName != null && newName.isNotEmpty) await cubit.renameSelected(newName);
-                          }
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.info_outline),
-                    label: const Text('属性'),
-                    onPressed: selected.length == 1
-                        ? () {
-                            final e = selected.first;
-                            showDialog<void>(
-                              context: context,
-                              builder: (dctx) => AlertDialog(
-                                title: const Text('属性'),
-                                content: Text('路径: ${e.path}\n类型: ${e.isDirectory ? '目录' : '文件'}\n大小: ${e.size ?? '-'}\n权限: ${e.permission ?? '-'}\n修改时间: ${e.modifiedTime ?? '-'}'),
-                                actions: [TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('关闭'))],
-                              ),
-                            );
-                          }
-                        : null,
-                  ),
-
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: Text('已选: ${selected.length} / 条目: ${state.files.length}'),
-                  ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.arrow_upward),
+                      label: const Text('返回上一层'),
+                      onPressed: () async {
+                        await cubit.mapsUp();
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.home),
+                      label: const Text('返回/sdcard'),
+                      onPressed: () async {
+                        await cubit.loadPath('/sdcard');
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('上传'),
+                      onPressed: () async {
+                        final result = await FilePicker.platform
+                            .pickFiles(allowMultiple: true);
+                        if (mounted && result != null) {
+                          final paths =
+                              result.paths.whereType<String>().toList();
+                          if (paths.isNotEmpty) await cubit.uploadFiles(paths);
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.download),
+                      label: const Text('下载'),
+                      onPressed: selected.isNotEmpty
+                          ? () async {
+                              final dir =
+                                  await FilePicker.platform.getDirectoryPath();
+                              if (mounted && dir != null) {
+                                await cubit.downloadSelected(dir);
+                              }
+                            }
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.delete),
+                      label: const Text('删除'),
+                      onPressed: selected.isNotEmpty
+                          ? () async {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (dctx) => AlertDialog(
+                                  title: const Text('确认删除'),
+                                  content:
+                                      Text('确定删除选中的 ${selected.length} 个条目吗？'),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dctx, false),
+                                        child: const Text('取消')),
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dctx, true),
+                                        child: const Text('删除')),
+                                  ],
+                                ),
+                              );
+                              if (mounted && ok == true) {
+                                await cubit.deleteSelected();
+                              }
+                            }
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.drive_file_rename_outline),
+                      label: const Text('重命名'),
+                      onPressed: selected.length == 1
+                          ? () async {
+                              final entry = selected.first;
+                              _renameController.text = entry.name;
+                              final newName = await showDialog<String?>(
+                                context: context,
+                                builder: (dctx) => AlertDialog(
+                                  title: const Text('重命名'),
+                                  content:
+                                      TextField(controller: _renameController),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dctx, null),
+                                        child: const Text('取消')),
+                                    TextButton(
+                                        onPressed: () => Navigator.pop(dctx,
+                                            _renameController.text.trim()),
+                                        child: const Text('确定')),
+                                  ],
+                                ),
+                              );
+                              if (mounted &&
+                                  newName != null &&
+                                  newName.isNotEmpty) {
+                                await cubit.renameSelected(newName);
+                              }
+                            }
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.info_outline),
+                      label: const Text('属性'),
+                      onPressed: selected.length == 1
+                          ? () {
+                              final e = selected.first;
+                              showDialog<void>(
+                                context: context,
+                                builder: (dctx) => AlertDialog(
+                                  title: const Text('属性'),
+                                  content: Text(
+                                      '路径: ${e.path}\n类型: ${e.isDirectory ? '目录' : '文件'}\n大小: ${e.size ?? '-'}\n权限: ${e.permission ?? '-'}\n修改时间: ${e.modifiedTime ?? '-'}'),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () => Navigator.pop(dctx),
+                                        child: const Text('关闭'))
+                                  ],
+                                ),
+                              );
+                            }
+                          : null,
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Text(
+                          '已选: ${selected.length} / 条目: ${state.files.length}'),
+                    ),
                   ],
                 ),
               ),
             ),
 
             // Progress bar (non-blocking) placed under toolbar
-            if (state.progress != null) LinearProgressIndicator(value: state.progress, minHeight: 4),
+            if (state.progress != null)
+              LinearProgressIndicator(value: state.progress, minHeight: 4),
 
             // File list (always interactive; loading is now non-blocking)
             Expanded(
@@ -229,7 +259,8 @@ class _FileManagerViewState extends State<_FileManagerView> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, idx) {
                     final entry = state.files[idx];
-                    final checked = state.selectedFiles.any((e) => e.path == entry.path);
+                    final checked =
+                        state.selectedFiles.any((e) => e.path == entry.path);
                     return MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: ListTile(
@@ -238,13 +269,19 @@ class _FileManagerViewState extends State<_FileManagerView> {
                             value: checked,
                             onChanged: (_) => cubit.toggleSelection(entry),
                           ),
-                          Icon(entry.isDirectory ? Icons.folder : Icons.insert_drive_file),
+                          Icon(entry.isDirectory
+                              ? Icons.folder
+                              : Icons.insert_drive_file),
                         ]),
                         title: Text(entry.name),
                         subtitle: Text(entry.permission ?? ''),
-                        trailing: Text(entry.size != null ? _formatSize(entry.size!) : ''),
-                        onTap: () => entry.isDirectory ? cubit.enterDirectory(entry) : null,
-                        onLongPress: () => _showContextMenu(context, entry, cubit),
+                        trailing: Text(
+                            entry.size != null ? _formatSize(entry.size!) : ''),
+                        onTap: () => entry.isDirectory
+                            ? cubit.enterDirectory(entry)
+                            : null,
+                        onLongPress: () =>
+                            _showContextMenu(context, entry, cubit),
                       ),
                     );
                   },
@@ -255,17 +292,23 @@ class _FileManagerViewState extends State<_FileManagerView> {
             // Bottom bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade300))),
+              decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: Colors.grey.shade300))),
               child: Row(
                 children: [
                   if (state.uploadProgress > 0 && state.uploadProgress < 1)
-                    Expanded(child: LinearProgressIndicator(value: state.uploadProgress)),
+                    Expanded(
+                        child: LinearProgressIndicator(
+                            value: state.uploadProgress)),
                   if (state.downloadProgress > 0 && state.downloadProgress < 1)
-                    Expanded(child: LinearProgressIndicator(value: state.downloadProgress)),
+                    Expanded(
+                        child: LinearProgressIndicator(
+                            value: state.downloadProgress)),
                   if (state.status == FileManagerStatus.failure)
                     Padding(
                       padding: const EdgeInsets.only(left: 12),
-                      child: Text('错误: ${state.errorMessage ?? ""}', style: const TextStyle(color: Colors.red)),
+                      child: Text('错误: ${state.errorMessage ?? ""}',
+                          style: const TextStyle(color: Colors.red)),
                     ),
                 ],
               ),
@@ -277,12 +320,15 @@ class _FileManagerViewState extends State<_FileManagerView> {
   }
 
   String _formatSize(int size) {
-    if (size >= 1024 * 1024) return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
+    if (size >= 1024 * 1024) {
+      return '${(size / (1024 * 1024)).toStringAsFixed(2)} MB';
+    }
     if (size >= 1024) return '${(size / 1024).toStringAsFixed(2)} KB';
     return '$size B';
   }
 
-  void _showContextMenu(BuildContext context, FileEntry entry, FileManagerCubit cubit) {
+  void _showContextMenu(
+      BuildContext context, FileEntry entry, FileManagerCubit cubit) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -295,7 +341,7 @@ class _FileManagerViewState extends State<_FileManagerView> {
               onTap: () async {
                 Navigator.of(ctx).pop();
                 final dir = await FilePicker.platform.getDirectoryPath();
-                if (dir != null) {
+                if (mounted && dir != null) {
                   final local = p.join(dir, entry.name);
                   cubit.downloadFile(entry, local);
                 }
@@ -312,12 +358,16 @@ class _FileManagerViewState extends State<_FileManagerView> {
                     title: const Text('确认删除'),
                     content: Text('确定删除 ${entry.name} 吗？'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(dctx, false), child: const Text('取消')),
-                      TextButton(onPressed: () => Navigator.pop(dctx, true), child: const Text('删除')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(dctx, false),
+                          child: const Text('取消')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(dctx, true),
+                          child: const Text('删除')),
                     ],
                   ),
                 );
-                if (ok == true) cubit.deleteFile(entry);
+                if (mounted && ok == true) cubit.deleteFile(entry);
               },
             ),
             ListTile(
@@ -332,12 +382,19 @@ class _FileManagerViewState extends State<_FileManagerView> {
                     title: const Text('重命名'),
                     content: TextField(controller: _renameController),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(dctx, null), child: const Text('取消')),
-                      TextButton(onPressed: () => Navigator.pop(dctx, _renameController.text.trim()), child: const Text('确定')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(dctx, null),
+                          child: const Text('取消')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(
+                              dctx, _renameController.text.trim()),
+                          child: const Text('确定')),
                     ],
                   ),
                 );
-                if (newName != null && newName.isNotEmpty) cubit.rename(entry, newName);
+                if (mounted && newName != null && newName.isNotEmpty) {
+                  cubit.rename(entry, newName);
+                }
               },
             ),
             ListTile(
@@ -349,8 +406,13 @@ class _FileManagerViewState extends State<_FileManagerView> {
                   context: context,
                   builder: (dctx) => AlertDialog(
                     title: const Text('属性'),
-                    content: Text('路径: ${entry.path}\n类型: ${entry.isDirectory ? '目录' : '文件'}\n大小: ${entry.size ?? '-'}'),
-                    actions: [TextButton(onPressed: () => Navigator.pop(dctx), child: const Text('关闭'))],
+                    content: Text(
+                        '路径: ${entry.path}\n类型: ${entry.isDirectory ? '目录' : '文件'}\n大小: ${entry.size ?? '-'}'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(dctx),
+                          child: const Text('关闭'))
+                    ],
                   ),
                 );
               },

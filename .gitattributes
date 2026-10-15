@@ -1,0 +1,11 @@
+* text=auto
+*.dart text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.iss text eol=crlf
+*.png binary
+*.ico binary
+*.7z binary

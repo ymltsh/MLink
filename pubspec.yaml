@@ -1,9 +1,9 @@
 name: adb_tool
-description: A simple ADB 工具箱桌面应用
-version: 1.0.0
-
+description: 妙联（MLink）ADB / scrcpy 屏幕互联桌面工具
+version: 1.0.1+2
 environment:
-  sdk: ">=2.17.0 <4.0.0"
+  sdk: ">=3.8.0 <4.0.0"
+  flutter: ">=3.32.0"
 
 dependencies:
   flutter:
@@ -12,10 +12,12 @@ dependencies:
   bloc: ^8.1.4
   equatable: ^2.0.5
   file_picker: ^6.1.1
-  process_run: ^0.13.2
   shared_preferences: ^2.2.2
   path: ^1.8.3
   path_provider: ^2.1.5
+  url_launcher: ^6.3.1
+  archive: ^4.0.7
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:

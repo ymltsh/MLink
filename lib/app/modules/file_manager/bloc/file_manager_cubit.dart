@@ -1,258 +1,228 @@
 import 'dart:async';
-
 import 'package:bloc/bloc.dart';
 import 'package:path/path.dart' as p;
-
 import '../models/file_entry.dart';
-import 'package:adb_tool/app/modules/file_manager/services/adb_file_service.dart';
+import '../services/adb_file_service.dart';
+import '../../tools/services/tool_cancellation.dart';
 import 'file_manager_state.dart';
 import 'package:adb_tool/utils/app_output.dart';
 
 class FileManagerCubit extends Cubit<FileManagerState> {
   final AdbFileService service;
   StreamSubscription<String>? _logSubscription;
+  bool _closing = false;
+  bool _busy = false;
+  int _readGeneration = 0;
+  bool get _alive => !_closing && !isClosed;
 
-  // track last logged percent per file tag to avoid flooding the output
-  final Map<String, int> _lastLoggedPercent = {};
-
-  // Accept deviceSerial and create the AdbFileService internally so ADB commands
-  // target the correct device.
-  FileManagerCubit({required String deviceSerial})
-      : service = AdbFileService(deviceSerial: deviceSerial),
+  FileManagerCubit({required String deviceSerial, AdbFileService? service})
+      : service = service ?? AdbFileService(deviceSerial: deviceSerial),
         super(FileManagerState.initial()) {
-    // 绑定日志流
-    _logSubscription = service.logStream.listen((raw) {
-      appendAppOutput('[ADB] $raw');
+    _logSubscription = this.service.logStream.listen((raw) {
+      if (_alive) appendAppOutput(raw, task: '文件');
     });
+  }
+
+  void _publish(FileManagerState next) {
+    if (_alive) emit(next);
+  }
+
+  void _checkAlive() {
+    if (!_alive) throw ToolCancelled();
   }
 
   @override
   Future<void> close() async {
+    _closing = true;
+    _readGeneration++;
+    service.dispose();
     await _logSubscription?.cancel();
-    try {
-      service.dispose();
-    } catch (_) {}
     return super.close();
   }
 
   Future<void> loadPath(String path) async {
-    // 清空输出，保持界面信息简洁
-    clearAppOutput();
-    // 1. 规范化输入路径，避免多斜杠或拼接错误
+    if (!_alive) return;
+    final generation = ++_readGeneration;
     final normalized = p.posix.normalize(path);
-    emit(state.copyWith(status: FileManagerStatus.loading, currentPath: normalized));
+    _publish(state.copyWith(
+        status: FileManagerStatus.loading,
+        currentPath: normalized,
+        errorMessage: null));
     try {
       final files = await service.ls(normalized, useRoot: state.isRootMode);
-      // clear selection when changing path
-      emit(state.copyWith(files: files, status: FileManagerStatus.success, selectedFiles: <FileEntry>{}));
+      if (!_alive || generation != _readGeneration) return;
+      _publish(state.copyWith(
+          files: files,
+          status: FileManagerStatus.success,
+          selectedFiles: <FileEntry>{},
+          errorMessage: null));
     } catch (e) {
-      // 在失败时只更新状态为 failure，而不进行自动重试，防止死循环
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
+      if (generation != _readGeneration) return;
+      _publish(state.copyWith(
+          files: [],
+          selectedFiles: <FileEntry>{},
+          status: FileManagerStatus.failure,
+          errorMessage: e.toString()));
+    }
+  }
+
+  Future<void> search(String query) async {
+    if (!_alive) return;
+    if (query.isEmpty) return loadPath(state.currentPath);
+    final generation = ++_readGeneration;
+    _publish(
+        state.copyWith(status: FileManagerStatus.loading, errorMessage: null));
+    try {
+      final files = await service.search(state.currentPath, query,
+          useRoot: state.isRootMode);
+      if (!_alive || generation != _readGeneration) return;
+      _publish(state.copyWith(
+          files: files,
+          selectedFiles: <FileEntry>{},
+          status: FileManagerStatus.success));
+    } catch (e) {
+      if (generation != _readGeneration) return;
+      _publish(state.copyWith(
+          status: FileManagerStatus.failure, errorMessage: e.toString()));
     }
   }
 
   Future<void> mapsUp() async {
-    // 清空输出，保持界面信息简洁
-    clearAppOutput();
-    final current = state.currentPath;
-    if (current == '/' || current.isEmpty) return;
-    final parent = p.posix.dirname(current);
-    final normalizedParent = p.posix.normalize(parent.isEmpty ? '/' : parent);
-    await loadPath(normalizedParent);
+    if (state.currentPath != '/') {
+      await loadPath(p.posix.dirname(state.currentPath));
+    }
   }
 
   Future<void> enterDirectory(FileEntry dir) async {
-    // 清空输出，保持界面信息简洁
-    clearAppOutput();
-    if (!dir.isDirectory) return;
-    final newPath = p.posix.normalize(dir.path);
-    await loadPath(newPath);
+    if (dir.isDirectory) await loadPath(dir.path);
   }
 
-  /// Toggle selection for a single file entry
+  Future<void> jumpToPath(String path) => loadPath(path);
   void toggleSelection(FileEntry file) {
-    final set = Set<FileEntry>.from(state.selectedFiles);
-    final exists = set.any((e) => e.path == file.path);
-    if (exists) {
-      set.removeWhere((e) => e.path == file.path);
+    if (!_alive) return;
+    final selected = Set<FileEntry>.from(state.selectedFiles);
+    if (selected.any((e) => e.path == file.path)) {
+      selected.removeWhere((e) => e.path == file.path);
     } else {
-      set.add(file);
+      selected.add(file);
     }
-    emit(state.copyWith(selectedFiles: set));
+    _publish(state.copyWith(selectedFiles: selected));
   }
 
-  /// Select all files currently listed
-  void selectAll() {
-    emit(state.copyWith(selectedFiles: Set<FileEntry>.from(state.files)));
-  }
-
-  /// Clear selection
-  void clearSelection() {
-    emit(state.copyWith(selectedFiles: <FileEntry>{}));
-  }
-
-  /// Jump to path via address bar
-  Future<void> jumpToPath(String path) async {
-    await loadPath(path);
-  }
-
+  void selectAll() =>
+      _publish(state.copyWith(selectedFiles: Set.of(state.files)));
+  void clearSelection() =>
+      _publish(state.copyWith(selectedFiles: <FileEntry>{}));
   void toggleRootMode() {
-    emit(state.copyWith(isRootMode: !state.isRootMode));
-    // reload current path
-    loadPath(state.currentPath);
+    if (!_alive || _busy) return;
+    _publish(state.copyWith(isRootMode: !state.isRootMode));
+    unawaited(loadPath(state.currentPath));
   }
 
-  Future<void> deleteFile(FileEntry file) async {
-    // 清空输出，保持界面信息简洁
-    clearAppOutput();
-    emit(state.copyWith(status: FileManagerStatus.loading));
+  Future<void> _perform(Future<void> Function(bool root, String origin) action,
+      {bool reload = true}) async {
+    if (!_alive || _busy) return;
+    _busy = true;
+    final origin = state.currentPath;
+    final root = state.isRootMode;
+    _publish(
+        state.copyWith(status: FileManagerStatus.loading, errorMessage: null));
     try {
-      await service.delete(file.path, useRoot: state.isRootMode);
-      await loadPath(state.currentPath);
-    } catch (e) {
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
-    }
-  }
-
-  /// Delete selected files (batch)
-  Future<void> deleteSelected() async {
-    if (state.selectedFiles.isEmpty) return;
-    // 清空主输出面板，保持本次操作日志简洁
-    clearAppOutput();
-    emit(state.copyWith(status: FileManagerStatus.loading));
-    try {
-      for (final f in state.selectedFiles) {
-        await service.delete(f.path, useRoot: state.isRootMode);
+      await action(root, origin);
+      _checkAlive();
+      if (reload && state.currentPath == origin) {
+        await loadPath(origin);
+      } else {
+        _publish(state.copyWith(status: FileManagerStatus.success));
       }
-      await loadPath(state.currentPath);
-      emit(state.copyWith(selectedFiles: <FileEntry>{}));
-    } catch (e) {
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
-    }
-  }
-
-  Future<void> downloadFile(FileEntry file, String localPath) async {
-    final tag = file.name;
-    _lastLoggedPercent[tag] = -100;
-    // 清空主输出面板，保持本次操作日志简洁
-    clearAppOutput();
-    emit(state.copyWith(progress: 0.0));
-    try {
-      await for (final p in service.pull(file.path, localPath, useRoot: state.isRootMode)) {
-        emit(state.copyWith(progress: p));
-        _logProgress(tag, p);
+    } catch (error) {
+      if (_alive) {
+        appendAppOutput('任务失败：$error', task: '文件');
+        _publish(state.copyWith(
+            status: FileManagerStatus.failure, errorMessage: error.toString()));
       }
-      emit(state.copyWith(progress: 1.0));
-    } catch (e) {
-      appendAppOutput('下载失败 $tag: $e');
     } finally {
-      // ensure progress is cleared so UI is not stuck
-      emit(state.copyWith(progress: null));
+      _busy = false;
+      _publish(state.copyWith(progress: null));
     }
   }
 
-  /// Download all selected files into [localDir]
-  Future<void> downloadSelected(String localDir) async {
-    if (state.selectedFiles.isEmpty) return;
-    // 清空输出以聚焦本次批量下载
-    clearAppOutput();
-    for (final f in state.selectedFiles) {
-      final local = p.join(localDir, f.name);
-      await downloadFile(f, local);
-    }
-    // clear progress after done
-    emit(state.copyWith(downloadProgress: 0.0, selectedFiles: <FileEntry>{}));
-  }
-
-  Future<void> uploadFile(String localPath, String remotePath) async {
-    // 清空主输出面板，保持本次操作日志简洁
-    clearAppOutput();
-    final tag = p.basename(localPath);
-    _lastLoggedPercent[tag] = -100;
-    // 清空主输出面板，保持本次操作日志简洁
-    emit(state.copyWith(progress: 0.0));
-    try {
-      // 如果传入的 remotePath 看起来包含本地 Windows 路径（例如带有反斜杠或盘符），
-      // 说明调用方可能误传了本地路径，改为把文件名作为远端目标名。
-      final bool looksLikeLocal = remotePath.contains('\\') || RegExp(r'^[A-Za-z]:').hasMatch(remotePath);
-      final targetRemote = looksLikeLocal
-          ? p.posix.join(state.currentPath, p.basename(localPath))
-          : p.posix.normalize(remotePath);
-      await for (final p in service.push(localPath, targetRemote, useRoot: state.isRootMode)) {
-        emit(state.copyWith(progress: p));
-        _logProgress(tag, p);
+  Future<void> deleteFile(FileEntry file) =>
+      _perform((root, _) => service.delete(file.path, useRoot: root));
+  Future<void> deleteSelected() {
+    final files = state.selectedFiles.toList();
+    return _perform((root, _) async {
+      for (final file in files) {
+        _checkAlive();
+        await service.delete(file.path, useRoot: root);
       }
-      emit(state.copyWith(progress: 1.0));
-      await loadPath(state.currentPath);
-    } catch (e) {
-      appendAppOutput('上传失败 $tag: $e');
-    } finally {
-      // always reset the transient progress indicator
-      emit(state.copyWith(progress: null));
-    }
+    });
   }
 
-  /// Upload multiple local files to current remote path
-  Future<void> uploadFiles(List<String> localPaths) async {
-    // Upload sequentially but keep UI non-blocking with progress updates
-    // 清空输出以聚焦本次批量上传
-    clearAppOutput();
-    for (final local in localPaths) {
-      final remote = p.posix.join(state.currentPath, p.basename(local));
-      try {
-        await uploadFile(local, remote);
-      } catch (e) {
-        appendAppOutput('上传任务出错 ${p.posix.basename(local)}: $e');
+  Future<void> _transfer(Stream<double> stream, String name) async {
+    _publish(state.copyWith(progress: 0.0));
+    var last = -100;
+    await for (final progress in stream) {
+      _checkAlive();
+      _publish(state.copyWith(progress: progress));
+      final percent = (progress * 100).toInt();
+      if (percent - last >= 10 || percent == 100 && last != 100) {
+        appendAppOutput('$name：$percent%', task: '传输');
+        last = percent;
       }
     }
+    _checkAlive();
   }
 
-  /// Log progress with throttling to avoid flooding the UI output panel.
-  /// Only logs at start (0%), every +10% increment, and at 100%.
-  void _logProgress(String tag, double percent) {
-    final p100 = (percent * 100).toInt();
-    final last = _lastLoggedPercent[tag] ?? -100;
-    if (p100 == 0 || p100 == 100 || p100 - last >= 10) {
-      appendAppOutput('正在传输 $tag: $p100%');
-      _lastLoggedPercent[tag] = p100;
-    }
+  Future<void> downloadFile(FileEntry file, String localPath) => _perform(
+      (root, _) => _transfer(
+          service.pull(file.path, localPath, useRoot: root), file.name),
+      reload: false);
+  Future<void> downloadSelected(String localDir) {
+    final files = state.selectedFiles.toList();
+    return _perform((root, _) async {
+      for (final file in files) {
+        _checkAlive();
+        await _transfer(
+            service.pull(file.path, p.join(localDir, file.name), useRoot: root),
+            file.name);
+      }
+      clearSelection();
+    }, reload: false);
   }
 
-  Future<void> makeDir(String name) async {
-    final target = p.posix.normalize(p.posix.join(state.currentPath, name));
-    try {
-      await service.mkdir(target, useRoot: state.isRootMode);
-      await loadPath(state.currentPath);
-    } catch (e) {
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
-    }
+  Future<void> uploadFile(String localPath, String remotePath) =>
+      _perform((root, origin) {
+        final localLooking = remotePath.contains('\\') ||
+            RegExp(r'^[A-Za-z]:').hasMatch(remotePath);
+        final target = localLooking
+            ? p.posix.join(origin, p.basename(localPath))
+            : p.posix.normalize(remotePath);
+        return _transfer(service.push(localPath, target, useRoot: root),
+            p.basename(localPath));
+      });
+  Future<void> uploadFiles(List<String> localPaths) {
+    final files = List.of(localPaths);
+    return _perform((root, origin) async {
+      for (final file in files) {
+        _checkAlive();
+        await _transfer(
+            service.push(file, p.posix.join(origin, p.basename(file)),
+                useRoot: root),
+            p.basename(file));
+      }
+    });
   }
 
-  Future<void> rename(FileEntry entry, String newName) async {
-    final parent = p.posix.dirname(entry.path);
-    final target = p.posix.normalize(parent == '.' ? newName : p.posix.join(parent, newName));
-    try {
-      await service.rename(entry.path, target, useRoot: state.isRootMode);
-      await loadPath(state.currentPath);
-    } catch (e) {
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
-    }
-  }
-
-  /// Rename the single selected file to [newName]
+  Future<void> makeDir(String name) => _perform((root, origin) =>
+      service.mkdir(p.posix.join(origin, name), useRoot: root));
+  Future<void> rename(FileEntry entry, String newName) =>
+      _perform((root, _) => service.rename(
+          entry.path, p.posix.join(p.posix.dirname(entry.path), newName),
+          useRoot: root));
   Future<void> renameSelected(String newName) async {
-    if (state.selectedFiles.length != 1) return;
-    final entry = state.selectedFiles.first;
-    await rename(entry, newName);
-  }
-
-  Future<void> search(String query) async {
-    emit(state.copyWith(status: FileManagerStatus.loading));
-    try {
-      final results = await service.search(state.currentPath, query, useRoot: state.isRootMode);
-      emit(state.copyWith(files: results, status: FileManagerStatus.success));
-    } catch (e) {
-      emit(state.copyWith(status: FileManagerStatus.failure, errorMessage: e.toString()));
+    if (state.selectedFiles.length == 1) {
+      await rename(state.selectedFiles.first, newName);
     }
   }
 }
