@@ -1,11 +1,24 @@
 {
   "latest": {
-    "version": "1.0.0",
-    "build": 1,
-    "name": "妙联 v1.0.0",
-    "notes": "更新发布体系初始化；实际下载产物将在首次正式发布后提供。",
-    "urls": {},
-    "page": "https://github.com/ymltsh/MLink/releases/latest"
+    "version": "1.0.1",
+    "build": 2,
+    "name": "妙联 v1.0.1",
+    "date": "2026-10-15",
+    "notes": "## 妙联 1.0.1\n\n本次更新重点修复设备操作和文件传输可靠性，并补齐 Windows 更新发布流程。\n\n- 修复文件上传/下载无法正常结束、尾部输出丢失和取消后残留任务；加强特殊文件名处理。\n- 所有设备操作绑定选中设备，切换时取消旧读取，避免过期信息和包名结果覆盖；监控失败明确报错。\n- 改善扫描取消、截图生命周期、投屏停止/重启及默认画质设置，修复关闭屏幕和禁用音频选项未生效。\n- 首次运行自动补全私有 ADB / scrcpy，官方摘要校验、离线缓存和更新失败回退；不修改系统 PATH。\n- 新增用户主动检查更新、Windows 安装程序和便携包、产物 SHA256 校验与完整回归检查。\n- 文档、应用品牌与 MIT 许可证统一。\n\n### 下载\n\nWindows x64 用户可选择安装程序，或解压便携 ZIP 后启动 code.exe；便携版请保留完整目录。\n安装包不内嵌 ADB / scrcpy，首次启动需要网络补全；官方校验信息必须可达。\n\n### 验证与限制\n\n静态分析、Flutter 和 Python 回归检查通过；scrcpy v5.0.1 真实下载、摘要校验、版本执行与离线恢复检查通过。file_picker 6.x 仍有桌面插件声明提示。\n本次未完成真实 Android 设备兼容性验收；macOS/Linux 为实验性支持，Android 调试 APK 不作为正式发行物。\n",
+    "urls": {
+      "windows": "https://github.com/ymltsh/MLink/releases/download/v1.0.1/mlink-setup-1.0.1.exe",
+      "windows_portable": "https://github.com/ymltsh/MLink/releases/download/v1.0.1/mlink-windows-1.0.1.zip"
+    },
+    "page": "https://github.com/ymltsh/MLink/releases/tag/v1.0.1"
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "build": 1,
+      "name": "妙联 v1.0.0",
+      "notes": "更新发布体系初始化；实际下载产物将在首次正式发布后提供。",
+      "urls": {},
+      "page": "https://github.com/ymltsh/MLink/releases/latest"
+    }
+  ]
 }
